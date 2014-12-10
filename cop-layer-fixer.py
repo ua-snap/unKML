@@ -46,11 +46,10 @@ kmzLayers = {
   'Tsunami - DART Buoys': 'https://ace.arsc.edu/system/files/Tsunami.kmz',
 }
 
-# Pass this function an XPath expression of elements that need encoding. If an
+# Pass this function a list of ElementTree elements that need encoding. If an
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
-def filterElements(xPathExpression, attribute = None):
-  allElements = tree.xpath(xPathExpression)
+def filterElements(allElements, attribute = None):
   if allElements:
     for element in allElements:
       if attribute:
@@ -77,8 +76,8 @@ for layer, url in kmlLayers.iteritems():
     continue
 
   # Encode invalid characters.
-  filterElements('.//*[local-name() = "styleUrl"]')
-  filterElements('.//*[local-name() = "Style" and @id]', 'id')
+  filterElements(tree.xpath('.//*[local-name() = "styleUrl"]'))
+  filterElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
   # Make sure we have an output directory.
   outputDir = 'output'
