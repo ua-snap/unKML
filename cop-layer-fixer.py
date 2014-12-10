@@ -3,6 +3,8 @@ import os
 import urllib2
 import lxml.etree
 
+outputDir = 'output'
+
 kmlLayers = {
   'Alaska Surface Analysis': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_analysis_transparent.kml',
   'Alaska 4-8 Day Surface Forecasts': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_pmsl_fcst_transparent.kml',
@@ -50,17 +52,15 @@ kmzLayers = {
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
 def encodeElements(allElements, attribute = None):
-  if allElements:
-    for element in allElements:
-      if attribute:
-        try:
-          element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
-        except:
-          print 'Element is missing {0} attribute.'.format(attribute)
-      else:
-        element.text = urllib2.quote(element.text, '#')
-    return True
-  return False
+  for element in allElements:
+    if attribute:
+      try:
+        element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
+      except:
+        print 'Element is missing {0} attribute.'.format(attribute)
+    else:
+      element.text = urllib2.quote(element.text, '#')
+  return True
 
 for layer, url in kmlLayers.iteritems():
   # Download KML layer from URL.
@@ -82,12 +82,11 @@ for layer, url in kmlLayers.iteritems():
   encodeElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
   # Make sure we have an output directory.
-  outputDir = 'output'
   if not os.path.exists(outputDir):
     os.mkdir(outputDir)
 
   # Write modified KML file using original file name.
-  layerBasename = url.rsplit('/', 1).pop()
+  layerBasename = url.rsplit('/', 1)[1]
   outputFile = open('{0}/{1}'.format(outputDir, layerBasename), 'w')
   tree.write(outputFile)
   outputFile.close()
