@@ -2,6 +2,9 @@
 import os
 import urllib2
 import lxml.etree
+import zipfile
+import StringIO
+import re
 
 outputDir = 'output'
 
@@ -62,20 +65,19 @@ def encodeElements(allElements, attribute = None):
       element.text = urllib2.quote(element.text, '#')
   return True
 
-for layer, url in kmlLayers.iteritems():
-  # Download KML layer from URL.
-  response = urllib2.urlopen(url)
-  layerData = response.read()
-
+# This function processes KML data regardless of whether it originally came
+# from a KML file or a KMZ file. It will use whatever layerName you pass it as
+# the processed KML's output file name.
+def processKML(layerName, kmlData):
   # Parse layer as XML and set as ElementTree root node.
-  etreeElement = lxml.etree.XML(layerData)
+  etreeElement = lxml.etree.XML(kmlData)
   tree = lxml.etree.ElementTree(etreeElement)
 
   # Unconfirmed assumption based on experience so far:
   # Layers with no Placemark nodes have nothing to give GeoNode.
   if not tree.xpath('.//*[local-name() = "Placemark"]'):
-    print 'Skipping {0} layer because it has no features.'.format(layer)
-    continue
+    print 'Skipping {0} layer because it has no features.'.format(layerName)
+    return False
 
   # Encode invalid characters.
   encodeElements(tree.xpath('.//*[local-name() = "styleUrl"]'))
@@ -86,7 +88,47 @@ for layer, url in kmlLayers.iteritems():
     os.mkdir(outputDir)
 
   # Write modified KML file using original file name.
-  layerBasename = url.rsplit('/', 1)[1]
-  outputFile = open('{0}/{1}'.format(outputDir, layerBasename), 'w')
+  layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', layerName)
+  outputFile = open('{0}/{1}.kml'.format(outputDir, layerFilePrefix), 'w')
   tree.write(outputFile)
   outputFile.close()
+
+# Process the KMZ layers.
+for layerName, url in kmzLayers.iteritems():
+  # Download KMZ layer from URL.
+  response = urllib2.urlopen(url)
+  kmzData = response.read()
+
+  # ZipFile cannot read ZIP data from a string, so convert the string into a
+  # file-like object using StringIO.
+  kmzDataIO = StringIO.StringIO(kmzData)
+
+  # Create and read ZIP file contents without touching the filesystem.
+  kmzZip = zipfile.ZipFile(kmzDataIO)
+  kmzFileList = kmzZip.namelist()
+
+  # Find KML file(s) inside the KMZ layer.
+  allKmlFiles = filter(lambda x: os.path.splitext(x)[1] == '.kml', kmzFileList)
+
+  # This script works with the assumption that there is only one KML file
+  # inside each KMZ layer. So far this has been the case with the JTF-AK COP
+  # layers, but if it changes, or if this script processes new KMZ layers with
+  # multiple KML files, we need to make sure to catch it and figure out how to
+  # change this script accordingly.
+  if len(allKmlFiles) != 1:
+    print 'Unexpected number of KML files found inside KMZ file for {0} layer:'.format(layerName)
+    print allKmlFiles
+  else:
+    kmlFileName = allKmlFiles[0]
+
+  # Read KML layer from ZIP file and process its contents.
+  kmlData = kmzZip.read(kmlFileName)
+  processKML(layerName, kmlData)
+
+# Process the KML layers.
+for layerName, url in kmlLayers.iteritems():
+  # Download KML layer from URL and process its contents.
+  response = urllib2.urlopen(url)
+  kmlData = response.read()
+  processKML(layerName, kmlData)
+
