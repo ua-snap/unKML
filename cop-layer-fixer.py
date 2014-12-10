@@ -50,17 +50,17 @@ kmzLayers = {
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
 def filterElements(allElements, attribute = None):
-  if allElements:
-    for element in allElements:
-      if attribute:
-        try:
-          element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
-        except:
-          print 'Element is missing {0} attribute.'.format(attribute)
-      else:
-        element.text = urllib2.quote(element.text, '#')
-    return True
-  return False
+  if not allElements:
+    return False
+  for element in allElements:
+    if attribute:
+      try:
+        element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
+      except:
+        print 'Element is missing {0} attribute.'.format(attribute)
+    else:
+      element.text = urllib2.quote(element.text, '#')
+  return True
 
 for layer, url in kmlLayers.iteritems():
   # Download KML layer from URL.
