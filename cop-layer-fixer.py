@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import os
 import urllib2
+import magic
 import lxml.etree
 import zipfile
 import StringIO
@@ -28,7 +29,7 @@ copLayers = {
   'Smoke': 'http://www.ospo.noaa.gov/data/land/fire/smoke.kml',
   'Volcano Status': 'http://weather.msfc.nasa.gov/ACE/volcano.kml',
   'AK DOT Mileposts': 'http://www.dot.alaska.gov/stwdplng/mapping/transdata/GE_Files/Alaska_Mileposts.kml',
-  'AK Railroad Mileposts': 'https://ace.arsc.edu/system/files/arrc_database.MPL__0.kml'
+  'AK Railroad Mileposts': 'https://ace.arsc.edu/system/files/arrc_database.MPL__0.kml',
   'Alaska Coastal Marine': 'http://weather.msfc.nasa.gov/ACE/AlaskaCoastalMarineZones.kmz',
   'Alaska Offshore Marine': 'http://weather.msfc.nasa.gov/ACE/AlaskaOffShoreMarineZones.kmz',
   'Alaska Zone Alerts': 'http://weather.msfc.nasa.gov/ACE/AlaskaLandZones.kmz',
@@ -69,7 +70,12 @@ def processKmlData(layerName, kmlData):
   etreeElement = lxml.etree.XML(kmlData)
   tree = lxml.etree.ElementTree(etreeElement)
 
-  print tree.xpath('.//*[local-name() = "NetworkLink"]')
+  allNetworkLinks = tree.xpath('.//*[local-name() = "NetworkLink"]')
+  for networkLink in allNetworkLinks:
+    networkLinkName = networkLink.xpath('./*[local-name() = "name"]/text()')
+    networkLinkUrl = networkLink.xpath('./*[local-name() = "Link"]/*[local-name() = "href"]/text()')
+    print networkLinkName
+    print networkLinkUrl
 
   # Unconfirmed assumption based on experience so far:
   # Layers with no Placemark nodes have nothing to give GeoNode.
@@ -91,11 +97,25 @@ def processKmlData(layerName, kmlData):
   tree.write(outputFile)
   outputFile.close()
 
-def downloadKmz(url):
+def downloadLayer(url):
   # Download KMZ layer from URL.
   response = urllib2.urlopen(url)
-  kmzData = response.read()
+  data = response.read()
 
+  # Analyze file contents to determine MIME type.
+  fileMagic = magic.Magic(mime = True)
+  mimeType = fileMagic.from_buffer(data)
+  print mimeType
+
+  # Return KML data if we have a valid source, or False if not.
+  if mimeType == 'application/xml':
+    return data
+  elif mimeType == 'application/zip':
+    return extractKmz(data)
+  else:
+    return False
+
+def extractKmz(kmzData):
   # ZipFile cannot read ZIP data from a string, so convert the string into a
   # file-like object using StringIO.
   kmzDataIO = StringIO.StringIO(kmzData)
@@ -123,18 +143,7 @@ def downloadKmz(url):
 
   return kmlData
 
-def downloadKml(url):
-  # Download KML layer from URL and process its contents.
-  response = urllib2.urlopen(url)
-  kmlData = response.read()
-  return kmlData
-
-# Process the KMZ layers.
-for layerName, url in kmzLayers.iteritems():
-  kmlData = downloadKmz(url)
-  processKmlData(layerName, kmlData)
-
-# Process the KML layers.
-for layerName, url in kmlLayers.iteritems():
-  kmlData = downloadKml(url)
+# Process COP layers.
+for layerName, url in copLayers.iteritems():
+  kmlData = downloadLayer(url)
   processKmlData(layerName, kmlData)
