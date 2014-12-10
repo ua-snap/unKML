@@ -2,6 +2,8 @@
 import os
 import urllib2
 import lxml.etree
+import zipfile
+import StringIO
 
 outputDir = 'output'
 
@@ -61,6 +63,15 @@ def encodeElements(allElements, attribute = None):
     else:
       element.text = urllib2.quote(element.text, '#')
   return True
+
+for layer, url in kmzLayers.iteritems():
+  response = urllib2.urlopen(url)
+  kmzData = response.read()
+  kmzDataIO = StringIO.StringIO(kmzData)
+  kmzZip = zipfile.ZipFile(kmzDataIO)
+  kmzFileList = kmzZip.namelist()
+  kmlFile = filter(lambda x: os.path.splitext(x)[1] == '.kml', kmzFileList)
+  print kmlFile
 
 for layer, url in kmlLayers.iteritems():
   # Download KML layer from URL.
