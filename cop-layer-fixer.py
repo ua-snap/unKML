@@ -72,6 +72,10 @@ for layer, url in kmlLayers.iteritems():
   etreeElement = lxml.etree.XML(layerData)
   tree = lxml.etree.ElementTree(etreeElement)
 
+  if not tree.xpath('.//*[local-name() = "Placemark"]'):
+    print 'Skipping {0} layer because it has no features.'.format(layer)
+    continue
+
   # Encode invalid characters.
   filterElements('.//*[local-name() = "styleUrl"]')
   filterElements('.//*[local-name() = "Style" and @id]', 'id')
