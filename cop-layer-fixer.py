@@ -85,7 +85,7 @@ for layer, url in kmlLayers.iteritems():
     os.mkdir(outputDir)
 
   # Write modified KML file using original file name.
-  layerBasename = url.rsplit('/', 1).pop()
+  layerBasename = url.rsplit('/', 1)[1]
   outputFile = open('{0}/{1}'.format(outputDir, layerBasename), 'w')
   tree.write(outputFile)
   outputFile.close()
