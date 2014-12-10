@@ -71,6 +71,7 @@ for layer, url in kmlLayers.iteritems():
   etreeElement = lxml.etree.XML(layerData)
   tree = lxml.etree.ElementTree(etreeElement)
 
+  # Layers with no Placemark nodes have nothing to give GeoNode.
   if not tree.xpath('.//*[local-name() = "Placemark"]'):
     print 'Skipping {0} layer because it has no features.'.format(layer)
     continue
