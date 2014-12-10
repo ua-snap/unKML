@@ -3,6 +3,8 @@ import os
 import urllib2
 import lxml.etree
 
+outputDir = 'output'
+
 kmlLayers = {
   'Alaska Surface Analysis': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_analysis_transparent.kml',
   'Alaska 4-8 Day Surface Forecasts': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_pmsl_fcst_transparent.kml',
@@ -79,7 +81,6 @@ for layer, url in kmlLayers.iteritems():
   filterElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
   # Make sure we have an output directory.
-  outputDir = 'output'
   if not os.path.exists(outputDir):
     os.mkdir(outputDir)
 
