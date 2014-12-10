@@ -8,7 +8,7 @@ import re
 
 outputDir = 'output'
 
-kmlLayers = {
+copLayers = {
   'Alaska Surface Analysis': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_analysis_transparent.kml',
   'Alaska 4-8 Day Surface Forecasts': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_pmsl_fcst_transparent.kml',
   'Alaska 4-8 Day 500mb Height Forecasts': 'http://www.hpc.ncep.noaa.gov/alaska/kml/ak_500mb_fcst_transparent.kml',
@@ -29,9 +29,6 @@ kmlLayers = {
   'Volcano Status': 'http://weather.msfc.nasa.gov/ACE/volcano.kml',
   'AK DOT Mileposts': 'http://www.dot.alaska.gov/stwdplng/mapping/transdata/GE_Files/Alaska_Mileposts.kml',
   'AK Railroad Mileposts': 'https://ace.arsc.edu/system/files/arrc_database.MPL__0.kml'
-}
-
-kmzLayers = {
   'Alaska Coastal Marine': 'http://weather.msfc.nasa.gov/ACE/AlaskaCoastalMarineZones.kmz',
   'Alaska Offshore Marine': 'http://weather.msfc.nasa.gov/ACE/AlaskaOffShoreMarineZones.kmz',
   'Alaska Zone Alerts': 'http://weather.msfc.nasa.gov/ACE/AlaskaLandZones.kmz',
@@ -63,15 +60,16 @@ def encodeElements(allElements, attribute = None):
         print 'Element is missing {0} attribute.'.format(attribute)
     else:
       element.text = urllib2.quote(element.text, '#')
-  return True
 
 # This function processes KML data regardless of whether it originally came
 # from a KML file or a KMZ file. It will use whatever layerName you pass it as
 # the processed KML's output file name.
-def processKML(layerName, kmlData):
+def processKmlData(layerName, kmlData):
   # Parse layer as XML and set as ElementTree root node.
   etreeElement = lxml.etree.XML(kmlData)
   tree = lxml.etree.ElementTree(etreeElement)
+
+  print tree.xpath('.//*[local-name() = "NetworkLink"]')
 
   # Unconfirmed assumption based on experience so far:
   # Layers with no Placemark nodes have nothing to give GeoNode.
@@ -93,8 +91,7 @@ def processKML(layerName, kmlData):
   tree.write(outputFile)
   outputFile.close()
 
-# Process the KMZ layers.
-for layerName, url in kmzLayers.iteritems():
+def downloadKmz(url):
   # Download KMZ layer from URL.
   response = urllib2.urlopen(url)
   kmzData = response.read()
@@ -123,12 +120,21 @@ for layerName, url in kmzLayers.iteritems():
 
   # Read KML layer from ZIP file and process its contents.
   kmlData = kmzZip.read(kmlFileName)
-  processKML(layerName, kmlData)
 
-# Process the KML layers.
-for layerName, url in kmlLayers.iteritems():
+  return kmlData
+
+def downloadKml(url):
   # Download KML layer from URL and process its contents.
   response = urllib2.urlopen(url)
   kmlData = response.read()
-  processKML(layerName, kmlData)
+  return kmlData
 
+# Process the KMZ layers.
+for layerName, url in kmzLayers.iteritems():
+  kmlData = downloadKmz(url)
+  processKmlData(layerName, kmlData)
+
+# Process the KML layers.
+for layerName, url in kmlLayers.iteritems():
+  kmlData = downloadKml(url)
+  processKmlData(layerName, kmlData)
