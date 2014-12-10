@@ -70,8 +70,9 @@ for layer, url in kmzLayers.iteritems():
   kmzDataIO = StringIO.StringIO(kmzData)
   kmzZip = zipfile.ZipFile(kmzDataIO)
   kmzFileList = kmzZip.namelist()
-  kmlFile = filter(lambda x: os.path.splitext(x)[1] == '.kml', kmzFileList)
-  print kmlFile
+  kmlFileName = filter(lambda x: os.path.splitext(x)[1] == '.kml', kmzFileList)[0]
+  kmlData = kmzZip.read(kmlFileName)
+  print kmlData
 
 for layer, url in kmlLayers.iteritems():
   # Download KML layer from URL.
