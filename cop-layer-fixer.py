@@ -49,7 +49,7 @@ kmzLayers = {
 # Pass this function a list of ElementTree elements that need encoding. If an
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
-def filterElements(allElements, attribute = None):
+def encodeElements(allElements, attribute = None):
   if allElements:
     for element in allElements:
       if attribute:
@@ -71,14 +71,15 @@ for layer, url in kmlLayers.iteritems():
   etreeElement = lxml.etree.XML(layerData)
   tree = lxml.etree.ElementTree(etreeElement)
 
+  # Unconfirmed assumption based on experience so far:
   # Layers with no Placemark nodes have nothing to give GeoNode.
   if not tree.xpath('.//*[local-name() = "Placemark"]'):
     print 'Skipping {0} layer because it has no features.'.format(layer)
     continue
 
   # Encode invalid characters.
-  filterElements(tree.xpath('.//*[local-name() = "styleUrl"]'))
-  filterElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
+  encodeElements(tree.xpath('.//*[local-name() = "styleUrl"]'))
+  encodeElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
   # Make sure we have an output directory.
   outputDir = 'output'
