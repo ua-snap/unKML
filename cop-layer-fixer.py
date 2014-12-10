@@ -50,8 +50,6 @@ kmzLayers = {
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
 def filterElements(allElements, attribute = None):
-  if not allElements:
-    return False
   for element in allElements:
     if attribute:
       try:
