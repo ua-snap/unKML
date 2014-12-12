@@ -12,14 +12,63 @@ debug = False
 outputDir = 'output'
 
 class Layer:
-  mimeType = None
-  boundingBox = None
   name = None
   url = None
+  mimeType = None
+  boundingBox = None
+  data = None
 
   def __init__(self, name, url):
     self.name = name
     self.url = url
+
+  def download(self):
+    # Download KMZ layer from URL.
+    try:
+      response = urllib2.urlopen(self.url)
+    except Exception, e:
+      if debug:
+        print e
+      return False
+    data = response.read()
+
+    # Analyze file contents to determine MIME type.
+    fileMagic = magic.Magic(mime = True)
+    self.mimeType = fileMagic.from_buffer(data)
+
+    # Return KML data if we have a valid source, or False if not.
+    if self.mimeType == 'application/xml':
+      self.data = data
+    elif self.mimeType == 'application/zip':
+      self.data = extractKmz(data)
+    else:
+      print 'Unsupported MIME type: {0}'.format(self.mimeType)
+      return False
+
+  def process(self):
+    self.download()
+
+    if self.data:
+      cleanKml = parseKml(self.name, self.data)
+    else:
+      if debug:
+        print 'Failed to download layer "{0}" from: {1}'.format(self.name, self.url)
+      return False
+
+    if cleanKml:
+      fileName = writeKml(self.name, cleanKml)
+    else:
+      # Some layers are just containers for sublayers, which are processed
+      # independently through recursion. There is no need to write layers that
+      # are just containers. But we need to be vigilant that we are catching all
+      # layer features. Are Placemarks the only possible vector layer features?
+      return False
+
+    if fileName:
+      print 'Wrote layer to file: {0}'.format(fileName)
+    else:
+      if debug:
+        print 'Failed to write layer "{0}" from: {1}'.format(self.name, self.url)
 
 layers = [
   Layer('COP', 'http://weather.msfc.nasa.gov/ACE/latestALCOMCOP.kml')
@@ -28,56 +77,7 @@ layers = [
 # Process list of layers.
 def processLayerList(allLayers):
   for layer in allLayers:
-    processLayer(layer)
-
-# Process a layer.
-def processLayer(layer):
-  kmlData = downloadLayer(layer.url)
-
-  if kmlData:
-    cleanKml = parseKml(layer.name, kmlData)
-  else:
-    if debug:
-      print 'Failed to download layer "{0}" from: {1}'.format(layer.name, layer.url)
-    return False
-
-  if cleanKml:
-    fileName = writeKml(layer.name, cleanKml)
-  else:
-    # Some layers are just containers for sublayers, which are processed
-    # independently through recursion. There is no need to write layers that
-    # are just containers. But we need to be vigilant that we are catching all
-    # layer features. Are Placemarks the only possible vector layer features?
-    return False
-
-  if fileName:
-    print 'Wrote layer to file: {0}'.format(fileName)
-  else:
-    if debug:
-      print 'Failed to write layer "{0}" from: {1}'.format(layer.name, layer.url)
-
-def downloadLayer(url):
-  # Download KMZ layer from URL.
-  try:
-    response = urllib2.urlopen(url)
-  except Exception, e:
-    if debug:
-      print e
-    return False
-  data = response.read()
-
-  # Analyze file contents to determine MIME type.
-  fileMagic = magic.Magic(mime = True)
-  mimeType = fileMagic.from_buffer(data)
-
-  # Return KML data if we have a valid source, or False if not.
-  if mimeType == 'application/xml':
-    return data
-  elif mimeType == 'application/zip':
-    return extractKmz(data)
-  else:
-    print 'Unsupported MIME type: {0}'.format(mimeType)
-    return False
+    layer.process()
 
 def extractKmz(kmzData):
   # ZipFile cannot read ZIP data from a string, so convert the string into a
