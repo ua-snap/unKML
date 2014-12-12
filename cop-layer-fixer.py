@@ -1,11 +1,13 @@
 #!/usr/bin/python
-import os
 import urllib2
-import magic
-import lxml.etree
-import zipfile
 import StringIO
+import tempfile
 import re
+import magic
+import zipfile
+import lxml.etree
+import osgeo.gdal
+import os
 import sys
 
 debug = False
@@ -66,6 +68,20 @@ class Layer:
       self.parseKml()
     elif self.mimeType in ('image/png', 'image/gif') and self.data:
       print 'Found a {0} file.'.format(self.mimeType)
+      plainImageFile = tempfile.NamedTemporaryFile()
+      geoTiffFile = tempfile.NamedTemporaryFile()
+      plainImageFile.write(self.data)
+      plainImageFile.seek(0)
+
+      plainImageDs = osgeo.gdal.Open(plainImageFile.name) 
+      gdalDriver = osgeo.gdal.GetDriverByName('GTiff')
+      geoTiffDs = gdalDriver.CreateCopy(geoTiffFile.name, plainImageDs, 0)
+      geoTiffFile.seek(0)
+
+      # Change layer data and MIME type to new GeoTIFF.
+      fileMagic = magic.Magic(mime = True)
+      self.data = geoTiffFile.read()
+      self.mimeType = fileMagic.from_buffer(self.data)
     else:
       if debug:
         print 'No useable content in layer "{0}" from: {1}'.format(self.name, self.url)
@@ -73,7 +89,9 @@ class Layer:
 
     # Write the KML, if parseKml() returned working data.
     if self.mimeType == 'application/xml' and self.data:
-      fileName = writeKml(self.name, self.data)
+      fileName = self.write()
+    elif self.mimeType == 'image/tif' and self.data:
+      fileName = self.write()
     else:
       # Some layers are just containers for sublayers, which are processed
       # independently through recursion. There is no need to write layers that
@@ -117,6 +135,30 @@ class Layer:
     encodeElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
     self.data = lxml.etree.tostring(tree)
+
+  def write(self):
+    # Make sure we have an output directory.
+    if not os.path.exists(outputDir):
+      os.mkdir(outputDir)
+
+    if self.mimeType == 'application/xml' and self.data:
+      layerExtension = 'kmz'
+    elif self.mimeType == 'image/tif' and self.data:
+      layerExtension = 'tif'
+
+    # Write modified KML file using cleaned layer name as file name.
+    layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', self.name)
+    try:
+      layerFileName = '{0}.{1}'.format(layerFilePrefix, layerExtension)
+      outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
+      outputFile.write(self.data)
+      outputFile.close()
+    except Exception, e:
+      if debug:
+        print e
+      return False
+
+    return layerFileName
 
 layers = [
   Layer('COP', 'http://weather.msfc.nasa.gov/ACE/latestALCOMCOP.kml')
@@ -203,24 +245,5 @@ def encodeElements(allElements, attribute = None):
     else:
       element.text = urllib2.quote(element.text, '#')
   return True
-
-def writeKml(layerName, data):
-  # Make sure we have an output directory.
-  if not os.path.exists(outputDir):
-    os.mkdir(outputDir)
-
-  # Write modified KML file using cleaned layer name as file name.
-  layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', layerName)
-  try:
-    layerFileName = '{0}.kml'.format(layerFilePrefix)
-    outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
-    outputFile.write(data)
-    outputFile.close()
-  except Exception, e:
-    if debug:
-      print e
-    return False
-
-  return layerFileName
 
 processLayerList(layers)
