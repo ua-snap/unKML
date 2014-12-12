@@ -10,28 +10,39 @@ import sys
 
 debug = False
 outputDir = 'output'
-layers = {
-  'COP': 'http://weather.msfc.nasa.gov/ACE/latestALCOMCOP.kml',
-}
+
+class Layer:
+  mimeType = None
+  boundingBox = None
+  name = None
+  url = None
+
+  def __init__(self, name, url):
+    self.name = name
+    self.url = url
+
+layers = [
+  Layer('COP', 'http://weather.msfc.nasa.gov/ACE/latestALCOMCOP.kml')
+]
 
 # Process list of layers.
 def processLayerList(allLayers):
-  for layerName, url in allLayers.iteritems():
-    processLayer(layerName, url)
+  for layer in allLayers:
+    processLayer(layer)
 
 # Process a layer.
-def processLayer(layerName, url):
-  kmlData = downloadLayer(url)
+def processLayer(layer):
+  kmlData = downloadLayer(layer.url)
 
   if kmlData:
-    cleanKml = parseKml(layerName, kmlData)
+    cleanKml = parseKml(layer.name, kmlData)
   else:
     if debug:
-      print 'Failed to download layer "{0}" from: {1}'.format(layerName, url)
+      print 'Failed to download layer "{0}" from: {1}'.format(layer.name, layer.url)
     return False
 
   if cleanKml:
-    fileName = writeKml(layerName, cleanKml)
+    fileName = writeKml(layer.name, cleanKml)
   else:
     # Some layers are just containers for sublayers, which are processed
     # independently through recursion. There is no need to write layers that
@@ -43,7 +54,7 @@ def processLayer(layerName, url):
     print 'Wrote layer to file: {0}'.format(fileName)
   else:
     if debug:
-      print 'Failed to write layer "{0}" from: {1}'.format(layerName, url)
+      print 'Failed to write layer "{0}" from: {1}'.format(layer.name, layer.url)
 
 def downloadLayer(url):
   # Download KMZ layer from URL.
@@ -109,17 +120,17 @@ def parseKml(layerName, kmlData):
     return False
   tree = lxml.etree.ElementTree(etreeElement)
 
-  sublayers = {}
+  sublayers = []
 
   sublayerNodes = tree.xpath('.//*[local-name() = "NetworkLink"]')
   sublayerNameXPath = './*[local-name() = "name"]/text()'
   sublayerLinkXPath = './*[local-name() = "Link"]/*[local-name() = "href"]/text()'
-  sublayers.update(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
+  sublayers.extend(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
 
   sublayerNodes = tree.xpath('.//*[local-name() = "GroundOverlay"]')
   sublayerNameXPath = './*[local-name() = "name"]/text()'
   sublayerLinkXPath = './*[local-name() = "Icon"]/*[local-name() = "href"]/text()'
-  sublayers.update(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
+  sublayers.extend(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
 
   # Recursive step.
   processLayerList(sublayers)
@@ -137,7 +148,7 @@ def parseKml(layerName, kmlData):
 
 def getSublayers(layerName, allNodes, nameXPath, linkXPath):
   counter = 1
-  sublayers = {}
+  sublayers = []
 
   for node in allNodes:
     # Get this sublayers's name. If it is unnamed, give it a number.
@@ -151,7 +162,7 @@ def getSublayers(layerName, allNodes, nameXPath, linkXPath):
     # Get this sublayer's URL. If it does not have one, skip it.
     sublayerUrl = node.xpath(linkXPath)
     if sublayerUrl:
-      sublayers[sublayerName] = sublayerUrl[0]
+      sublayers.append(Layer(sublayerName, sublayerUrl[0]))
     else:
       continue
 
