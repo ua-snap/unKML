@@ -65,9 +65,8 @@ class Layer:
 
     # Clean the KML.
     if self.mimeType == 'application/xml' and self.data:
-      self.parseKml()
+      goodKml = self.parseKml()
     elif self.mimeType in ('image/png', 'image/gif') and self.data:
-      print 'Found a {0} file.'.format(self.mimeType)
       plainImageFile = tempfile.NamedTemporaryFile()
       geoTiffFile = tempfile.NamedTemporaryFile()
       plainImageFile.write(self.data)
@@ -90,7 +89,7 @@ class Layer:
     # Write the KML, if parseKml() returned working data.
     if self.mimeType == 'application/xml' and self.data:
       fileName = self.write()
-    elif self.mimeType == 'image/tif' and self.data:
+    elif self.mimeType == 'image/tiff' and self.data:
       fileName = self.write()
     else:
       # Some layers are just containers for sublayers, which are processed
@@ -135,6 +134,7 @@ class Layer:
     encodeElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
     self.data = lxml.etree.tostring(tree)
+    return True
 
   def write(self):
     # Make sure we have an output directory.
@@ -143,7 +143,7 @@ class Layer:
 
     if self.mimeType == 'application/xml' and self.data:
       layerExtension = 'kmz'
-    elif self.mimeType == 'image/tif' and self.data:
+    elif self.mimeType == 'image/tiff' and self.data:
       layerExtension = 'tif'
 
     # Write modified KML file using cleaned layer name as file name.
