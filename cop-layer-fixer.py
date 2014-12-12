@@ -8,39 +8,50 @@ import StringIO
 import re
 import sys
 
+debug = False
 outputDir = 'output'
-
-copLayers = {
+layers = {
   'COP': 'http://weather.msfc.nasa.gov/ACE/latestALCOMCOP.kml',
 }
 
+# Process list of layers.
+def processLayerList(allLayers):
+  for layerName, url in allLayers.iteritems():
+    processLayer(layerName, url)
+
+# Process a layer.
 def processLayer(layerName, url):
   kmlData = downloadLayer(url)
 
   if kmlData:
     cleanKml = parseKml(layerName, kmlData)
   else:
-    print 'Failed to download layer "{0}" from: {1}'.format(layerName, url)
+    if debug:
+      print 'Failed to download layer "{0}" from: {1}'.format(layerName, url)
     return False
 
   if cleanKml:
-    writeSuccess = writeKml(layerName, cleanKml)
+    fileName = writeKml(layerName, cleanKml)
   else:
-    # Unconfirmed assumption based on experience so far:
-    # Layers with no Placemark nodes have nothing useful except for
-    # NetworkLinks, which are processed indepedently through recursion.
-    print 'Found nothing useful in, or failed to parse, layer "{0}" from: {1}'.format(layerName, url)
+    # Some layers are just containers for sublayers, which are processed
+    # independently through recursion. There is no need to write layers that
+    # are just containers. But we need to be vigilant that we are catching all
+    # layer features. Are Placemarks the only possible vector layer features?
     return False
 
-  if not writeSuccess:
-    print 'Failed to write layer "{0}" from: {1}'.format(layerName, url)
+  if fileName:
+    print 'Wrote layer to file: {0}'.format(fileName)
+  else:
+    if debug:
+      print 'Failed to write layer "{0}" from: {1}'.format(layerName, url)
 
 def downloadLayer(url):
   # Download KMZ layer from URL.
   try:
     response = urllib2.urlopen(url)
   except Exception, e:
-    print e
+    if debug:
+      print e
     return False
   data = response.read()
 
@@ -54,6 +65,7 @@ def downloadLayer(url):
   elif mimeType == 'application/zip':
     return extractKmz(data)
   else:
+    print 'Unsupported MIME type: {0}'.format(mimeType)
     return False
 
 def extractKmz(kmzData):
@@ -92,28 +104,25 @@ def parseKml(layerName, kmlData):
   try:
     etreeElement = lxml.etree.XML(kmlData)
   except Exception, e:
-    print e
+    if debug:
+      print e
     return False
   tree = lxml.etree.ElementTree(etreeElement)
 
-  counter = 1
-  allNetworkLinks = tree.xpath('.//*[local-name() = "NetworkLink"]')
-  for networkLink in allNetworkLinks:
-    # Get this NetworkLink's name. If it is unnamed, give it a number.
-    networkLinkName = networkLink.xpath('./*[local-name() = "name"]/text()')
-    if networkLinkName:
-      subName = networkLinkName[0]
-    if not networkLinkName:
-      subName = counter
-      counter += 1
-    newLayerName = '{0}/{1}'.format(layerName, subName)
+  sublayers = {}
 
-    # Get this NetworkLink's URL. If it does not have one, skip it.
-    networkLinkUrl = networkLink.xpath('./*[local-name() = "Link"]/*[local-name() = "href"]/text()')
-    if networkLinkUrl:
-      processLayer(newLayerName, networkLinkUrl[0])
-    else:
-      print 'Missing URL in NetworkLink "{0}".'.format(newLayerName)
+  sublayerNodes = tree.xpath('.//*[local-name() = "NetworkLink"]')
+  sublayerNameXPath = './*[local-name() = "name"]/text()'
+  sublayerLinkXPath = './*[local-name() = "Link"]/*[local-name() = "href"]/text()'
+  sublayers.update(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
+
+  sublayerNodes = tree.xpath('.//*[local-name() = "GroundOverlay"]')
+  sublayerNameXPath = './*[local-name() = "name"]/text()'
+  sublayerLinkXPath = './*[local-name() = "Icon"]/*[local-name() = "href"]/text()'
+  sublayers.update(getSublayers(layerName, sublayerNodes, sublayerNameXPath, sublayerLinkXPath))
+
+  # Recursive step.
+  processLayerList(sublayers)
 
   # Unconfirmed assumption based on experience so far:
   # Layers with no Placemark or NetworkLink nodes have nothing to give GeoNode.
@@ -126,6 +135,28 @@ def parseKml(layerName, kmlData):
 
   return lxml.etree.tostring(tree)
 
+def getSublayers(layerName, allNodes, nameXPath, linkXPath):
+  counter = 1
+  sublayers = {}
+
+  for node in allNodes:
+    # Get this sublayers's name. If it is unnamed, give it a number.
+    sublayerName = node.xpath(nameXPath)
+    if sublayerName:
+      sublayerName = '{0}/{1}'.format(layerName, sublayerName[0])
+    else:
+      sublayerName = '{0}/{1}'.format(layerName, counter)
+      counter += 1
+
+    # Get this sublayer's URL. If it does not have one, skip it.
+    sublayerUrl = node.xpath(linkXPath)
+    if sublayerUrl:
+      sublayers[sublayerName] = sublayerUrl[0]
+    else:
+      continue
+
+  return sublayers
+
 # Pass this function a list of ElementTree elements that need encoding. If an
 # attribute parameter is specified, it will encode that attribute's value. If
 # no attribute parameter is specified, it will encode the node's text.
@@ -135,7 +166,8 @@ def encodeElements(allElements, attribute = None):
       try:
         element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
       except Exception, e:
-        print e
+        if debug:
+          print e
         return False
     else:
       element.text = urllib2.quote(element.text, '#')
@@ -149,17 +181,15 @@ def writeKml(layerName, data):
   # Write modified KML file using cleaned layer name as file name.
   layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', layerName)
   try:
-    outputFile = open('{0}/{1}.kml'.format(outputDir, layerFilePrefix), 'w')
+    layerFileName = '{0}.kml'.format(layerFilePrefix)
+    outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
     outputFile.write(data)
     outputFile.close()
   except Exception, e:
-    print e
+    if debug:
+      print e
     return False
 
-  return True
+  return layerFileName
 
-# Process COP layers.
-for layerName, url in copLayers.iteritems():
-  print '--- Processing first-level layer "{0}"'.format(layerName)
-  processLayer(layerName, url)
-  print ''
+processLayerList(layers)
