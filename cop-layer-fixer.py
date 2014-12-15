@@ -9,6 +9,7 @@ import lxml.etree
 import osgeo.gdal
 import os
 import sys
+import subprocess
 
 debug = False
 outputDir = 'output'
@@ -35,6 +36,9 @@ class Layer:
     return lxml.etree.ElementTree(etreeElement)
 
   def download(self):
+    if debug:
+      print 'Downloading {0} from {1}'.format(self.name, self.url)
+
     # Download KMZ layer from URL.
     try:
       response = urllib2.urlopen(self.url)
@@ -65,22 +69,9 @@ class Layer:
 
     # Clean the KML.
     if self.mimeType == 'application/xml' and self.data:
-      goodKml = self.parseKml()
+      self.parseKml()
     elif self.mimeType in ('image/png', 'image/gif') and self.data:
-      plainImageFile = tempfile.NamedTemporaryFile()
-      geoTiffFile = tempfile.NamedTemporaryFile()
-      plainImageFile.write(self.data)
-      plainImageFile.seek(0)
-
-      plainImageDs = osgeo.gdal.Open(plainImageFile.name) 
-      gdalDriver = osgeo.gdal.GetDriverByName('GTiff')
-      geoTiffDs = gdalDriver.CreateCopy(geoTiffFile.name, plainImageDs, 0)
-      geoTiffFile.seek(0)
-
-      # Change layer data and MIME type to new GeoTIFF.
-      fileMagic = magic.Magic(mime = True)
-      self.data = geoTiffFile.read()
-      self.mimeType = fileMagic.from_buffer(self.data)
+      self.convertRaster()
     else:
       if debug:
         print 'No useable content in layer "{0}" from: {1}'.format(self.name, self.url)
@@ -134,6 +125,50 @@ class Layer:
     encodeElements(tree.xpath('.//*[local-name() = "Style" and @id]'), 'id')
 
     self.data = lxml.etree.tostring(tree)
+    return True
+
+  def convertRaster(self):
+    # Use temporary files for both the input and output, then load the output
+    # data into self.data. This way we can keep the Layer class agnostic of
+    # vector/raster Layers and use the same write() function for both later on.
+    plainImageFile = tempfile.NamedTemporaryFile()
+    plainImageFile.write(self.data)
+    plainImageFile.seek(0)
+    geoTiffFile = tempfile.NamedTemporaryFile()
+
+    # All of the gdal_translate command line arguments broken into components.
+    gdalArguments = [
+      '/usr/local/bin/gdal_translate',
+      '-of',
+      'Gtiff',
+      '-a_ullr',
+      self.boundingBox['west'],
+      self.boundingBox['north'],
+      self.boundingBox['east'],
+      self.boundingBox['south'],
+      '-a_srs',
+      'EPSG:4326',
+      plainImageFile.name,
+      geoTiffFile.name
+    ]
+
+    # Run gdal_transate, capturing output and errors for debugging.
+    gdalProcess = subprocess.Popen(gdalArguments, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    gdalOutput, gdalErrors = gdalProcess.communicate()
+
+    if gdalProcess.returncode:
+      print 'gdal_translate command failed.'
+      if debug:
+        print ' '.join(gdalArguments)
+        print gdalOutput
+        print gdalErrors
+      return False
+
+    # Change layer data and MIME type to new GeoTIFF.
+    fileMagic = magic.Magic(mime = True)
+    geoTiffFile.seek(0)
+    self.data = geoTiffFile.read()
+    self.mimeType = fileMagic.from_buffer(self.data)
     return True
 
   def write(self):
@@ -221,10 +256,10 @@ def getSublayers(layer, allNodes, nameXPath, linkXPath):
 
     if sublayer.mimeType in ('image/png', 'image/gif'):
       latLonBox = node.xpath('./*[local-name() = "LatLonBox"]')[0]
-      sublayer.boundingBox['north'] = latLonBox.xpath('./*[local-name() = "north"]')[0]
-      sublayer.boundingBox['south'] = latLonBox.xpath('./*[local-name() = "south"]')[0]
-      sublayer.boundingBox['east'] = latLonBox.xpath('./*[local-name() = "east"]')[0]
-      sublayer.boundingBox['west'] = latLonBox.xpath('./*[local-name() = "west"]')[0]
+      sublayer.boundingBox['north'] = latLonBox.xpath('./*[local-name() = "north"]/text()')[0]
+      sublayer.boundingBox['south'] = latLonBox.xpath('./*[local-name() = "south"]/text()')[0]
+      sublayer.boundingBox['east'] = latLonBox.xpath('./*[local-name() = "east"]/text()')[0]
+      sublayer.boundingBox['west'] = latLonBox.xpath('./*[local-name() = "west"]/text()')[0]
       
     newSublayers.append(sublayer)
 
