@@ -142,7 +142,7 @@ class Layer:
       os.mkdir(outputDir)
 
     if self.mimeType == 'application/xml' and self.data:
-      layerExtension = 'kmz'
+      layerExtension = 'kml'
     elif self.mimeType == 'image/tiff' and self.data:
       layerExtension = 'tif'
 
