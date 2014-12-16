@@ -6,7 +6,6 @@ import re
 import magic
 import zipfile
 import lxml.etree
-import osgeo.gdal
 import os
 import sys
 import subprocess
