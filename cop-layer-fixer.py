@@ -9,8 +9,9 @@ import lxml.etree
 import os
 import sys
 import subprocess
+import logging
 
-debug = False
+logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.INFO)
 outputDir = 'output'
 
 class Layer:
@@ -25,15 +26,13 @@ class Layer:
     self.url = url
 
   def download(self):
-    if debug:
-      print 'Downloading {0} from {1}'.format(self.name, self.url)
+    logging.info('Downloading {0} from {1}'.format(self.name, self.url))
 
     # Download KMZ layer from URL.
     try:
       response = urllib2.urlopen(self.url)
     except Exception, e:
-      if debug:
-        print e
+      logging.exception(e)
       return False
     data = response.read()
 
@@ -49,7 +48,7 @@ class Layer:
     elif self.mimeType in ('image/png', 'image/gif'):
       self.data = data
     else:
-      print 'Unsupported MIME type: {0}'.format(self.mimeType)
+      logging.warning('Unsupported MIME type: {0}'.format(self.mimeType))
       return False
 
     return True
@@ -72,8 +71,8 @@ class Layer:
     # multiple KML files, we need to make sure to catch it and figure out how to
     # change this script accordingly.
     if len(allKmlFiles) != 1:
-      print 'Unexpected number of KML files found inside KMZ file for layer "{0}":'.format(self.name)
-      print allKmlFiles
+      logging.error('Unexpected number of KML files found inside KMZ file for layer "{0}":'.format(self.name))
+      logging.error(allKmlFiles)
     else:
       kmlFileName = allKmlFiles[0]
 
@@ -123,8 +122,7 @@ class Layer:
         try:
           element.set(attribute, urllib2.quote(element.attrib[attribute], '#'))
         except Exception, e:
-          if debug:
-            print e
+          logging.exception(e)
           return False
       else:
         element.text = urllib2.quote(element.text, '#')
@@ -160,11 +158,10 @@ class Layer:
     gdalOutput, gdalErrors = gdalProcess.communicate()
 
     if gdalProcess.returncode:
-      print 'gdal_translate command failed.'
-      if debug:
-        print ' '.join(gdalArguments)
-        print gdalOutput
-        print gdalErrors
+      logging.error('gdal_translate command failed:')
+      logging.error(' '.join(gdalArguments))
+      logging.debug(gdalOutput)
+      logging.debug(gdalErrors)
       return False
 
     # Change layer data and MIME type to new GeoTIFF.
@@ -192,8 +189,7 @@ class Layer:
       outputFile.write(self.data)
       outputFile.close()
     except Exception, e:
-      if debug:
-        print e
+      logging.exception(e)
       return False
 
     return layerFileName
@@ -203,8 +199,7 @@ class Layer:
     try:
       etreeElement = lxml.etree.XML(self.data)
     except Exception, e:
-      if debug:
-        print e
+      logging.exception(e)
       return False
     return lxml.etree.ElementTree(etreeElement)
 
@@ -251,8 +246,7 @@ class Layer:
     elif self.mimeType in ('image/png', 'image/gif') and self.data:
       self.convertRaster()
     else:
-      if debug:
-        print 'No useable content in layer "{0}" from: {1}'.format(self.name, self.url)
+      logging.warning('No useable content in layer "{0}" from: {1}'.format(self.name, self.url))
       return False
 
     # Write the KML, if parseKml() returned working data.
@@ -268,10 +262,9 @@ class Layer:
       return False
 
     if fileName:
-      print 'Wrote layer to file: {0}'.format(fileName)
+      logging.info('Wrote layer to file: {0}'.format(fileName))
     else:
-      if debug:
-        print 'Failed to write layer "{0}" from: {1}'.format(self.name, self.url)
+      logging.warning('Failed to write layer "{0}" from: {1}'.format(self.name, self.url))
 
     return True
 
