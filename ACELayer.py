@@ -15,7 +15,7 @@ class Layer:
   outputDir = None
   name = None
   url = None
-  mimeType = None
+  fileType = None
   data = None
   boundingBox = {}
 
@@ -36,17 +36,20 @@ class Layer:
 
     # Analyze file contents to determine MIME type.
     fileMagic = magic.Magic(mime = True)
-    self.mimeType = fileMagic.from_buffer(data)
+    mimeType = fileMagic.from_buffer(data)
 
     # Return KML data if we have a valid source, or False if not.
-    if self.mimeType == 'application/xml':
+    if mimeType == 'application/xml':
+      self.fileType = 'vector'
       self.data = data
-    elif self.mimeType == 'application/zip':
+    elif mimeType == 'application/zip':
+      self.fileType = 'kmz'
       self.extractKmz(data)
-    elif self.mimeType in ('image/png', 'image/gif'):
+    elif mimeType in ('image/png', 'image/gif'):
+      self.fileType = 'raster'
       self.data = data
     else:
-      logging.warning('Unsupported MIME type: {0}'.format(self.mimeType))
+      logging.warning('Unsupported MIME type: {0}'.format(mimeType))
       return False
 
     return True
@@ -126,6 +129,52 @@ class Layer:
         element.text = urllib2.quote(element.text, '#')
     return True
 
+  def convertVector(self):
+    kmlFile = tempfile.NamedTemporaryFile()
+    kmlFile.write(self.data)
+    kmlFile.seek(0)
+
+    shapeDir = tempfile.mkdtemp()
+    layerFilePrefix, layerExtension = self.getCleanFileName()
+    shapeFileName = '{0}.shp'.format(layerFilePrefix)
+    shapeFilePath = '{0}/{1}'.format(shapeDir, shapeFileName)
+
+    # This script uses a custom built version of GDAL with libkml support.
+    # When built from source, GDAL and libkml are each installed in the
+    # /usr/local directory, but you need to set the LD_LIBRARY_PATH environment
+    # variable for this script to access them correctly. I'll add instructions
+    # to the README soon.
+    ogrArguments = [
+      '/usr/local/bin/ogr2ogr',
+      '-f',
+      'ESRI Shapefile',
+      shapeFilePath,
+      kmlFile.name,
+    ]
+
+    ogrProcess = subprocess.Popen(ogrArguments, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    ogrOutput, ogrErrors = ogrProcess.communicate()
+
+    if ogrProcess.returncode:
+      logging.error('ogr2ogr command failed:')
+      logging.error(' '.join(ogrArguments))
+      logging.debug(ogrOutput)
+      logging.debug(ogrErrors)
+      return False
+
+    allShapeFiles = os.listdir(shapeDir)
+    shapeZipPath = tempfile.NamedTemporaryFile()
+    shapeZip = zipfile.ZipFile(shapeZipPath, 'w')
+
+    for rootDir, subDirs, files in os.walk(shapeDir):
+      for shapeFile in files:
+        shapeZip.write('{0}/{1}'.format(rootDir, shapeFile), shapeFile)
+
+    shapeZip.close()
+    shapeZipPath.seek(0)
+    self.data = shapeZipPath.read()
+    return True
+
   def convertRaster(self):
     # Use temporary files for both the input and output, then load the output
     # data into self.data. This way we can keep the Layer class agnostic of
@@ -135,7 +184,11 @@ class Layer:
     plainImageFile.seek(0)
     geoTiffFile = tempfile.NamedTemporaryFile()
 
-    # All of the gdal_translate command line arguments broken into components.
+    # This script uses a custom built version of GDAL with libkml support.
+    # When built from source, GDAL and libkml are each installed in the
+    # /usr/local directory, but you need to set the LD_LIBRARY_PATH environment
+    # variable for this script to access them correctly. I'll add instructions
+    # to the README soon.
     gdalArguments = [
       '/usr/local/bin/gdal_translate',
       '-of',
@@ -166,7 +219,6 @@ class Layer:
     fileMagic = magic.Magic(mime = True)
     geoTiffFile.seek(0)
     self.data = geoTiffFile.read()
-    self.mimeType = fileMagic.from_buffer(self.data)
     return True
 
   def write(self):
@@ -174,15 +226,10 @@ class Layer:
     if not os.path.exists(outputDir):
       os.mkdir(outputDir)
 
-    if self.mimeType == 'application/xml' and self.data:
-      layerExtension = 'kml'
-    elif self.mimeType == 'image/tiff' and self.data:
-      layerExtension = 'tif'
-
     # Write modified KML file using cleaned layer name as file name.
-    layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', self.name)
+    layerFilePrefix, layerExtension = self.getCleanFileName()
+    layerFileName = '{0}.{1}'.format(layerFilePrefix, layerExtension)
     try:
-      layerFileName = '{0}.{1}'.format(layerFilePrefix, layerExtension)
       outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
       outputFile.write(self.data)
       outputFile.close()
@@ -200,6 +247,17 @@ class Layer:
       logging.exception(e)
       return False
     return lxml.etree.ElementTree(etreeElement)
+
+  def getCleanFileName(self):
+    layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', self.name)
+
+    # KML files will become Shapefiles, rasters will become GeoTIFFs.
+    if self.fileType == 'vector':
+      layerExtension = 'zip'
+    elif self.fileType == 'raster':
+      layerExtension = 'tif'
+
+    return [layerFilePrefix, layerExtension]
 
   def getSublayers(self, allNodes, nameXPath, linkXPath):
     counter = 1
@@ -223,7 +281,7 @@ class Layer:
 
       sublayer.download()
 
-      if sublayer.mimeType in ('image/png', 'image/gif'):
+      if sublayer.fileType == 'raster':
         latLonBox = node.xpath('./*[local-name() = "LatLonBox"]')[0]
         sublayer.boundingBox['north'] = latLonBox.xpath('./*[local-name() = "north"]/text()')[0]
         sublayer.boundingBox['south'] = latLonBox.xpath('./*[local-name() = "south"]/text()')[0]
@@ -239,18 +297,20 @@ class Layer:
       self.download()
 
     # Clean the KML.
-    if self.mimeType == 'application/xml' and self.data:
+    if self.fileType == 'vector' and self.data:
       usefulKml = self.parseKml()
-    elif self.mimeType in ('image/png', 'image/gif') and self.data:
+      if usefulKml:
+        self.convertVector()
+    elif self.fileType == 'raster' and self.data:
       self.convertRaster()
     else:
       logging.warning('No useable content in layer "{0}" from: {1}'.format(self.name, self.url))
       return False
 
     # Write the KML, if parseKml() returned working data.
-    if self.mimeType == 'application/xml' and self.data and usefulKml:
+    if self.fileType == 'vector' and self.data and usefulKml:
       fileName = self.write()
-    elif self.mimeType == 'image/tiff' and self.data:
+    elif self.fileType == 'raster' and self.data:
       fileName = self.write()
     else:
       # Some layers are just containers for sublayers, which are processed
