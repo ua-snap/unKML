@@ -242,7 +242,7 @@ class Layer:
 
     # Clean the KML.
     if self.mimeType == 'application/xml' and self.data:
-      self.parseKml()
+      usefulKml = self.parseKml()
     elif self.mimeType in ('image/png', 'image/gif') and self.data:
       self.convertRaster()
     else:
@@ -250,7 +250,7 @@ class Layer:
       return False
 
     # Write the KML, if parseKml() returned working data.
-    if self.mimeType == 'application/xml' and self.data:
+    if self.mimeType == 'application/xml' and self.data and usefulKml:
       fileName = self.write()
     elif self.mimeType == 'image/tiff' and self.data:
       fileName = self.write()
