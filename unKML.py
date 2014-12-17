@@ -132,10 +132,9 @@ class Layer:
     # This script uses a custom built version of GDAL with libkml support.
     # When built from source, GDAL and libkml are each installed in the
     # /usr/local directory, but you need to set the LD_LIBRARY_PATH environment
-    # variable for this script to access them correctly. I'll add instructions
-    # to the README soon.
+    # variable for this script to access them correctly.
     ogrArguments = [
-      '/usr/local/bin/ogr2ogr',
+      'ogr2ogr',
       '-f',
       'ESRI Shapefile',
       shapeFilePath,
@@ -188,10 +187,9 @@ class Layer:
     # This script uses a custom built version of GDAL with libkml support.
     # When built from source, GDAL and libkml are each installed in the
     # /usr/local directory, but you need to set the LD_LIBRARY_PATH environment
-    # variable for this script to access them correctly. I'll add instructions
-    # to the README soon.
+    # variable for this script to access them correctly.
     gdalArguments = [
-      '/usr/local/bin/gdal_translate',
+      'gdal_translate',
       '-of',
       'Gtiff',
       '-a_ullr',

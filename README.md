@@ -3,39 +3,27 @@ unKML
 
 ## Setup and installation
 
-These instructions will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support.
+These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support. 
 
- 1. Install libcurl if it is not already installed
+ 1. Install libcurl if it is not already installed:
 
     ```bash
     sudo apt-get install libcurl4-openssl-dev
     ```
 
- 1. Install virtualenv if it is not already installed
+ 1. Install virtualenv if it is not already installed:
 
     ```bash
     sudo pip install virtualenv
     ```
 
- 1. Create an unKML virtual environment
+ 1. Create an unKML virtual environment:
 
     ```bash
-    virtualenv env/unKML
+    virtualenv ~/env/unKML
     ```
 
- 1. Activate the unKML virtual environment
-
-    ```bash
-    source env/unKML/bin/activate
-    ```
-
- 1. Install required Python modules
-
-    ```bash
-    pip install python-magic lxml
-    ```
-
- 1. Download, build, and install libkml source
+ 1. Download, build, and install libkml from source:
 
     ```bash
     git clone https://github.com/google/libkml.git
@@ -47,11 +35,11 @@ These instructions will install unKML and the components it needs locally, insid
     cd ..
     ```
 
- 1. Download, build, and install GDAL from source with libkml support
+ 1. Download, build, and install GDAL from source with libkml support:
 
     ```bash
     wget 'http://download.osgeo.org/gdal/1.11.1/gdal-1.11.1.tar.gz'
-    tar zxvf gdal-1.11.1.tar.gz
+    tar -zxvf gdal-1.11.1.tar.gz
     cd gdal-1.11.1
     ./configure --prefix=$HOME/env/unKML --with-libkml=$HOME/env/unKML
     make
@@ -59,7 +47,7 @@ These instructions will install unKML and the components it needs locally, insid
     cd ..
     ```
 
- 1. Add the following line to the bottom of ~/.profile
+ 1. Add the following line to the bottom of ```~/.profile```:
 
     ```bash
     export LD_LIBRARY_PATH=$HOME/env/unKML/lib
@@ -71,7 +59,19 @@ These instructions will install unKML and the components it needs locally, insid
     source ~/.profile
     ```
 
- 1. Download unKML
+ 1. Activate the unKML virtual environment:
+
+    ```bash
+    source ~/env/unKML/bin/activate
+    ```
+
+ 1. Install required Python modules:
+
+    ```bash
+    pip install python-magic lxml
+    ```
+
+ 1. Download unKML:
 
     ```bash
     git clone https://github.com/ua-snap/unKML.git
@@ -79,8 +79,10 @@ These instructions will install unKML and the components it needs locally, insid
 
 ## Usage
 
- 1. Activate the unKML virtual environment
+ 1. Activate the unKML virtual environment:
 
     ```bash
-    source env/unKML/bin/activate
+    source ~/env/unKML/bin/activate
     ```
+
+ 1. Copy or modify the included ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers included in the provided layers.
