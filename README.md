@@ -3,9 +3,15 @@ unKML
 
 ## Setup and installation
 
-These instructions will install unKML and all of the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support.
+These instructions will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support.
 
- 1. Install virtualenv, if it is not already installed
+ 1. Install libcurl if it is not already installed
+
+    ```bash
+    sudo apt-get install libcurl4-openssl-dev
+    ```
+
+ 1. Install virtualenv if it is not already installed
 
     ```bash
     sudo pip install virtualenv
