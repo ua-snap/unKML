@@ -17,16 +17,16 @@ These instructions will install unKML and the components it needs locally, insid
     sudo pip install virtualenv
     ```
 
- 1. Create an unkml virtual environment
+ 1. Create an unKML virtual environment
 
     ```bash
-    virtualenv env/unkml
+    virtualenv env/unKML
     ```
 
- 1. Activate the unkml virtual environment
+ 1. Activate the unKML virtual environment
 
     ```bash
-    source env/unkml/bin/activate
+    source env/unKML/bin/activate
     ```
 
  1. Install required Python modules
@@ -41,7 +41,7 @@ These instructions will install unKML and the components it needs locally, insid
     git clone https://github.com/google/libkml.git
     cd libkml
     ./autogen.sh
-    ./configure --prefix=$HOME/env/unkml
+    ./configure --prefix=$HOME/env/unKML
     make
     make install
     cd ..
@@ -53,7 +53,7 @@ These instructions will install unKML and the components it needs locally, insid
     wget 'http://download.osgeo.org/gdal/1.11.1/gdal-1.11.1.tar.gz'
     tar zxvf gdal-1.11.1.tar.gz
     cd gdal-1.11.1
-    ./configure --prefix=$HOME/env/unkml --with-libkml=$HOME/env/unkml
+    ./configure --prefix=$HOME/env/unKML --with-libkml=$HOME/env/unKML
     make
     make install
     cd ..
@@ -62,7 +62,7 @@ These instructions will install unKML and the components it needs locally, insid
  1. Add the following line to the bottom of ~/.profile
 
     ```bash
-    export LD_LIBRARY_PATH=$HOME/env/unkml/lib
+    export LD_LIBRARY_PATH=$HOME/env/unKML/lib
     ```
 
     And run this command to make sure the change is in effect:
@@ -79,8 +79,8 @@ These instructions will install unKML and the components it needs locally, insid
 
 ## Usage
 
- 1. Activate the unkml virtual environment
+ 1. Activate the unKML virtual environment
 
     ```bash
-    source env/unkml/bin/activate
+    source env/unKML/bin/activate
     ```
