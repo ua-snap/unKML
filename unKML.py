@@ -18,6 +18,7 @@ class Layer:
   fileType = None
   data = None
   boundingBox = {}
+  fileMagic = magic.Magic(mime = True)
 
   def __init__(self, name, url):
     self.name = name
@@ -35,8 +36,7 @@ class Layer:
     data = response.read()
 
     # Analyze file contents to determine MIME type.
-    fileMagic = magic.Magic(mime = True)
-    mimeType = fileMagic.from_buffer(data)
+    mimeType = Layer.fileMagic.from_buffer(data)
 
     # Return KML data if we have a valid source, or False if not.
     if mimeType == 'application/xml':
@@ -82,6 +82,10 @@ class Layer:
   # from a KML file or a KMZ file. It will use whatever layerName you pass it as
   # the processed KML's output file name.
   def parseKml(self):
+    mimeType = Layer.fileMagic.from_buffer(self.data)
+    if mimeType != 'application/xml':
+      return False
+
     tree = self.getXmlTree()
     sublayers = []
 
