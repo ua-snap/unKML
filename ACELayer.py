@@ -43,7 +43,7 @@ class Layer:
       self.fileType = 'vector'
       self.data = data
     elif mimeType == 'application/zip':
-      self.fileType = 'kmz'
+      self.fileType = 'vector'
       self.extractKmz(data)
     elif mimeType in ('image/png', 'image/gif'):
       self.fileType = 'raster'
@@ -101,11 +101,6 @@ class Layer:
 
     # Recursive step.
     Layer.processLayerList(sublayers)
-
-    # Unconfirmed assumption based on experience so far:
-    # Layers with no Placemark or NetworkLink nodes have nothing to give GeoNode.
-    if not tree.xpath('.//*[local-name() = "Placemark"]'):
-      return False
 
     # Encode invalid characters.
     self.encodeElements(tree.xpath('.//*[local-name() = "styleUrl"]'))
