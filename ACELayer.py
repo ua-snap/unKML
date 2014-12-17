@@ -135,8 +135,7 @@ class Layer:
     kmlFile.seek(0)
 
     shapeDir = tempfile.mkdtemp()
-    layerFilePrefix, layerExtension = self.getCleanFileName()
-    shapeFileName = '{0}.shp'.format(layerFilePrefix)
+    shapeFileName = Layer.getCleanFileName(self.name, 'shp')
     shapeFilePath = '{0}/{1}'.format(shapeDir, shapeFileName)
 
     # This script uses a custom built version of GDAL with libkml support.
@@ -162,17 +161,28 @@ class Layer:
       logging.debug(ogrErrors)
       return False
 
-    allShapeFiles = os.listdir(shapeDir)
-    shapeZipPath = tempfile.NamedTemporaryFile()
-    shapeZip = zipfile.ZipFile(shapeZipPath, 'w')
-
+    shapeFiles = {}
     for rootDir, subDirs, files in os.walk(shapeDir):
       for shapeFile in files:
-        shapeZip.write('{0}/{1}'.format(rootDir, shapeFile), shapeFile)
+        filePrefix = os.path.splitext(shapeFile)[0]
+        try:
+          shapeFiles[filePrefix]
+        except:
+          shapeFiles[filePrefix] = []
+        shapeFiles[filePrefix].append(shapeFile)
 
-    shapeZip.close()
-    shapeZipPath.seek(0)
-    self.data = shapeZipPath.read()
+      for shapePrefix in shapeFiles.keys():
+        shapeZipTemp = tempfile.NamedTemporaryFile()
+        shapeZip = zipfile.ZipFile(shapeZipTemp, 'w')
+        for part in shapeFiles[shapePrefix]:
+          shapeZip.write('{0}/{1}'.format(rootDir, part), part)
+        shapeZip.close()
+        shapeZipTemp.seek(0)
+        layerFileName = Layer.getCleanFileName(shapePrefix, 'zip')
+        Layer.write(layerFileName, shapeZipTemp.read())
+        shapeZipTemp.close()
+        logging.info('Wrote file: {0}'.format(layerFileName))
+
     return True
 
   def convertRaster(self):
@@ -215,23 +225,22 @@ class Layer:
       logging.debug(gdalErrors)
       return False
 
-    # Change layer data and MIME type to new GeoTIFF.
-    fileMagic = magic.Magic(mime = True)
     geoTiffFile.seek(0)
-    self.data = geoTiffFile.read()
+    layerFileName = Layer.getCleanFileName(self.name, 'tif')
+    Layer.write(layerFileName, geoTiffFile.read())
+    geoTiffFile.close()
+    logging.info('Wrote file: {0}'.format(layerFileName))
     return True
 
-  def write(self):
+  @staticmethod
+  def write(layerFileName, layerData):
     # Make sure we have an output directory.
     if not os.path.exists(outputDir):
       os.mkdir(outputDir)
 
-    # Write modified KML file using cleaned layer name as file name.
-    layerFilePrefix, layerExtension = self.getCleanFileName()
-    layerFileName = '{0}.{1}'.format(layerFilePrefix, layerExtension)
     try:
       outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
-      outputFile.write(self.data)
+      outputFile.write(layerData)
       outputFile.close()
     except Exception, e:
       logging.exception(e)
@@ -248,16 +257,10 @@ class Layer:
       return False
     return lxml.etree.ElementTree(etreeElement)
 
-  def getCleanFileName(self):
-    layerFilePrefix = re.sub(r'[^a-zA-Z_0-9]', '_', self.name)
-
-    # KML files will become Shapefiles, rasters will become GeoTIFFs.
-    if self.fileType == 'vector':
-      layerExtension = 'zip'
-    elif self.fileType == 'raster':
-      layerExtension = 'tif'
-
-    return [layerFilePrefix, layerExtension]
+  @staticmethod
+  def getCleanFileName(prefix, extension):
+    cleanPrefix = re.sub(r'[^a-zA-Z_0-9]', '_', prefix)
+    return '{0}.{1}'.format(cleanPrefix, extension)
 
   def getSublayers(self, allNodes, nameXPath, linkXPath):
     counter = 1
@@ -306,23 +309,6 @@ class Layer:
     else:
       logging.warning('No useable content in layer "{0}" from: {1}'.format(self.name, self.url))
       return False
-
-    # Write the KML, if parseKml() returned working data.
-    if self.fileType == 'vector' and self.data and usefulKml:
-      fileName = self.write()
-    elif self.fileType == 'raster' and self.data:
-      fileName = self.write()
-    else:
-      # Some layers are just containers for sublayers, which are processed
-      # independently through recursion. There is no need to write layers that
-      # are just containers. But we need to be vigilant that we are catching all
-      # layer features. Are Placemarks the only possible vector layer features?
-      return False
-
-    if fileName:
-      logging.info('Wrote layer to file: {0}'.format(fileName))
-    else:
-      logging.warning('Failed to write layer "{0}" from: {1}'.format(self.name, self.url))
 
     return True
 
