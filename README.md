@@ -23,6 +23,42 @@ These instructions will install unKML and the components it needs locally, insid
     virtualenv ~/env/unKML
     ```
 
+ 1. Download, build, and install libkml source
+
+    ```bash
+    git clone https://github.com/google/libkml.git
+    cd libkml
+    ./autogen.sh
+    ./configure --prefix=$HOME/env/unKML
+    make
+    make install
+    cd ..
+    ```
+
+ 1. Download, build, and install GDAL from source with libkml support
+
+    ```bash
+    wget 'http://download.osgeo.org/gdal/1.11.1/gdal-1.11.1.tar.gz'
+    tar -zxvf gdal-1.11.1.tar.gz
+    cd gdal-1.11.1
+    ./configure --prefix=$HOME/env/unKML --with-libkml=$HOME/env/unKML
+    make
+    make install
+    cd ..
+    ```
+
+ 1. Add the following line to the bottom of ~/.profile
+
+    ```bash
+    export LD_LIBRARY_PATH=$HOME/env/unKML/lib
+    ```
+
+    And run this command to make sure the change is in effect:
+
+    ```bash
+    source ~/.profile
+    ```
+
  1. Activate the unKML virtual environment
 
     ```bash
@@ -33,42 +69,6 @@ These instructions will install unKML and the components it needs locally, insid
 
     ```bash
     pip install python-magic lxml
-    ```
-
- 1. Download, build, and install libkml source
-
-    ```bash
-    git clone https://github.com/google/libkml.git
-    cd libkml
-    ./autogen.sh
-    ./configure --prefix=~/env/unKML
-    make
-    make install
-    cd ..
-    ```
-
- 1. Download, build, and install GDAL from source with libkml support
-
-    ```bash
-    wget 'http://download.osgeo.org/gdal/1.11.1/gdal-1.11.1.tar.gz'
-    tar zxvf gdal-1.11.1.tar.gz
-    cd gdal-1.11.1
-    ./configure --prefix=~/env/unKML --with-libkml=~/env/unKML
-    make
-    make install
-    cd ..
-    ```
-
- 1. Add the following line to the bottom of ~/.profile
-
-    ```bash
-    export LD_LIBRARY_PATH=~/env/unKML/lib
-    ```
-
-    And run this command to make sure the change is in effect:
-
-    ```bash
-    source ~/.profile
     ```
 
  1. Download unKML
