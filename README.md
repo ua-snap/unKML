@@ -3,7 +3,7 @@ unKML
 
 ## Setup and installation
 
-These instructions will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support. 
+These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support. 
 
  1. Install libcurl if it is not already installed
 
@@ -84,3 +84,5 @@ These instructions will install unKML and the components it needs locally, insid
     ```bash
     source ~/env/unKML/bin/activate
     ```
+
+ 1. Copy or modify the included example.py to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers included in the provided layers.
