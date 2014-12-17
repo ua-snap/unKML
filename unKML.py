@@ -64,7 +64,7 @@ class Layer:
     kmzFileList = kmzZip.namelist()
 
     # Find KML file(s) inside the KMZ layer.
-    allKmlFiles = filter(lambda x: os.path.splitext(x)[1] == '.kml', kmzFileList)
+    allKmlFiles = filter(lambda x: os.path.splitext(x)[1].lower() == '.kml', kmzFileList)
 
     # This script works with the assumption that there is only one KML file
     # inside each KMZ layer. So far this has been the case with the JTF-AK COP
