@@ -66,11 +66,7 @@ class Layer:
     # Find KML file(s) inside the KMZ layer.
     allKmlFiles = filter(lambda x: os.path.splitext(x)[1].lower() == '.kml', kmzFileList)
 
-    # This script works with the assumption that there is only one KML file
-    # inside each KMZ layer. So far this has been the case with the JTF-AK COP
-    # layers, but if it changes, or if this script processes new KMZ layers with
-    # multiple KML files, we need to make sure to catch it and figure out how to
-    # change this script accordingly.
+    # This script currently supports KMZ files containing only one KML file.
     if len(allKmlFiles) != 1:
       logging.error('Unexpected number of KML files found inside KMZ file for layer "{0}":'.format(self.name))
       logging.error(allKmlFiles)
