@@ -96,7 +96,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
  1. Activate the unKML virtual environment:
 
     ```bash
-    source ~/env/unKML/bin/activate
+    workon unKML
     ```
 
  1. Copy or modify the included ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers included in the provided layers.
