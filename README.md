@@ -74,6 +74,12 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     cd ..
     ```
 
+ 1. Remove libkml and GDAL source files:
+
+    ```bash
+    rm -fr libkml gdal-1.11.1.tar.gz gdal-1.11.1
+    ```
+
  1. Activate the unKML virtual environment:
 
     ```bash
@@ -90,12 +96,6 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
 
     ```bash
     git clone https://github.com/ua-snap/unKML.git
-    ```
-
- 1. Remove installation files:
-
-    ```bash
-    rm -fr libkml gdal-1.11.1.tar.gz gdal-1.11.1
     ```
 
 ## Usage
