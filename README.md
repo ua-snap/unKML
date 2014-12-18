@@ -3,7 +3,7 @@ unKML
 
 ## Setup and installation
 
-These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs locally, inside your home directory. This is to avoid impacting the system-wide installation of GDAL, if it exists, since unKML requires a custom build of GDAL with libkml support. 
+These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs inside your home directory as a virtual environment. This is to avoid impacting the system-wide installation of GDAL, if one exists, since unKML requires a custom build of GDAL with libkml support. You will also be able to switch between using your custom GDAL and the system GDAL by activating or deactivating the unKML virtual environment, respectively.
 
  1. Install libcurl if it is not already installed:
 
@@ -31,10 +31,11 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     source ~/.bash_profile
     ```
 
- 1. Create an unKML virtual environment:
+ 1. Create an unKML virtual environment, then deactivate it for now so we can modify it and reactivate it later:
 
     ```bash
     mkvirtualenv unKML
+    deactivate
     ```
 
  1. Add a local dynamic library path to the unKML virtual environment by adding the following line to the ```~/.virtualenvs/unKML/bin/postactivate``` file:
