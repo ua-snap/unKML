@@ -25,7 +25,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     source /usr/local/bin/virtualenvwrapper.sh
     ```
 
-    And make sure these changes are in effect with:
+    And make sure these changes are in effect by running:
 
     ```bash
     source ~/.bash_profile
@@ -38,13 +38,13 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     deactivate
     ```
 
- 1. Add a local dynamic library path to the unKML virtual environment by adding the following line to the ```~/.virtualenvs/unKML/bin/postactivate``` file:
+ 1. Add a local dynamic library path to the unKML virtual environment by adding the following line to ```~/.virtualenvs/unKML/bin/postactivate```:
     
     ```bash
     export LD_LIBRARY_PATH=$HOME/.virtualenvs/unKML/lib
     ```
 
-    And the following line to ```~/.virtualenvs/unKML/bin/predeactivate```:
+    And adding the following line to ```~/.virtualenvs/unKML/bin/predeactivate```:
 
     ```bash
     unset LD_LIBRARY_PATH
