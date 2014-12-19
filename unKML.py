@@ -94,9 +94,17 @@ class Layer:
     kmlFile.write(self.data)
     kmlFile.seek(0)
 
-    shapeDir = tempfile.mkdtemp()
+    tempDir = tempfile.mkdtemp()
     shapeFileName = Layer.getCleanFileName(self.name, 'shp')
-    shapeFilePath = '{0}/{1}'.format(shapeDir, shapeFileName)
+    shapeFilePath = '{0}/{1}'.format(tempDir, shapeFileName)
+    splitParts = shapeFilePath.rsplit('/', 1)
+
+    if len(splitParts) == 2:
+      shapeDir = splitParts[0]
+      if not os.path.exists(shapeDir):
+          os.makedirs(shapeDir)
+    else:
+      shapeDir = tempDir
 
     ogrArguments = [
       'ogr2ogr',
@@ -181,20 +189,33 @@ class Layer:
     return True
 
   @staticmethod
-  def write(layerFileName, layerData):
-    # Make sure we have an output directory.
-    if not os.path.exists(outputDir):
-      os.mkdir(outputDir)
+  def getFullPath(layerFilePath):
+    splitParts = layerFilePath.rsplit('/', 1)
+    if len(splitParts) == 2:
+      directoryPath = '{0}/{1}'.format(outputDir, splitParts[0])
+      fileName = splitParts[1]
+    else:
+      directoryPath = outputDir
+      fileName = splitParts[0]
+
+    if not os.path.exists(directoryPath):
+      os.makedirs(directoryPath)
+
+    return (directoryPath, fileName)
+
+  @staticmethod
+  def write(layerFilePath, layerData):
+    directoryPath, fileName = Layer.getFullPath(layerFilePath)
 
     try:
-      outputFile = open('{0}/{1}'.format(outputDir, layerFileName), 'w')
+      outputFile = open('{0}/{1}'.format(directoryPath, fileName), 'w')
       outputFile.write(layerData)
       outputFile.close()
     except Exception, e:
       logging.exception(e)
       return False
 
-    return layerFileName
+    return layerFilePath
 
   # Parse layer as XML and set as ElementTree root node.
   def getXmlTree(self):
@@ -207,7 +228,7 @@ class Layer:
 
   @staticmethod
   def getCleanFileName(prefix, extension):
-    cleanPrefix = re.sub(r'[^a-zA-Z_0-9]', '_', prefix)
+    cleanPrefix = re.sub(r'[^a-zA-Z_0-9\/]', '_', prefix)
     return '{0}.{1}'.format(cleanPrefix, extension)
 
   def getSublayers(self):

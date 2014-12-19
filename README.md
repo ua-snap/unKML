@@ -5,7 +5,7 @@ unKML
 
 These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs inside your home directory as a virtual environment. This is to avoid impacting the system-wide installation of GDAL, if one exists, since unKML requires a custom build of GDAL with libkml support. You will also be able to switch between using your custom GDAL and the system GDAL by activating or deactivating the unKML virtual environment, respectively.
 
- 1. Install libcurl if it is not already installed:
+ 1. Install the libcurl development package if it is not already installed:
 
     ```bash
     sudo apt-get install libcurl4-openssl-dev
