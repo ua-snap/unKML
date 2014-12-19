@@ -11,18 +11,34 @@ import sys
 import subprocess
 import logging
 
+fileMagic = magic.Magic(mime = True)
+outputDir = None
+
+# Process list of layers.
+def processLayerList(allLayers):
+  for layer in allLayers:
+    layer.process()
+
+# Make strings filesystem safe.
+def fileNameFilter(string):
+  fileNameParts = string.rsplit('.', 1)
+  safeFileNameParts = map(lambda x: re.sub(r'[^a-zA-Z_0-9]', '_', x), fileNameParts)
+  safeFileName = '.'.join(safeFileNameParts)
+  return safeFileName
+
 class Layer:
-  outputDir = None
   name = None
   url = None
   fileType = None
   data = None
   boundingBox = {}
-  fileMagic = magic.Magic(mime = True)
+  layerTrail = []
 
-  def __init__(self, name, url):
+  def __init__(self, name, url, layerTrail = []):
     self.name = name
     self.url = url
+    self.layerTrail = layerTrail
+    self.layerTrail.append(self.name)
 
   def download(self):
     logging.info('Downloading {0} from {1}'.format(self.name, self.url))
@@ -36,7 +52,7 @@ class Layer:
     data = response.read()
 
     # Analyze file contents to determine MIME type.
-    mimeType = Layer.fileMagic.from_buffer(data)
+    mimeType = fileMagic.from_buffer(data)
 
     if mimeType == 'application/xml':
       self.fileType = 'vector'
@@ -78,14 +94,14 @@ class Layer:
     self.data = kmlData
 
   def processKml(self):
-    mimeType = Layer.fileMagic.from_buffer(self.data)
+    mimeType = fileMagic.from_buffer(self.data)
     if mimeType != 'application/xml':
       return False
 
     # Process sublayers through recursion.
     sublayers = self.getSublayers()
     if sublayers:
-      Layer.processLayerList(sublayers)
+      processLayerList(sublayers)
 
     return True
 
@@ -95,16 +111,9 @@ class Layer:
     kmlFile.seek(0)
 
     tempDir = tempfile.mkdtemp()
-    shapeFileName = Layer.getCleanFileName(self.name, 'shp')
-    shapeFilePath = '{0}/{1}'.format(tempDir, shapeFileName)
-    splitParts = shapeFilePath.rsplit('/', 1)
-
-    if len(splitParts) == 2:
-      shapeDir = splitParts[0]
-      if not os.path.exists(shapeDir):
-          os.makedirs(shapeDir)
-    else:
-      shapeDir = tempDir
+    fileName = '{0}.shp'.format(self.name)
+    safeFileName = fileNameFilter(fileName)
+    shapeFilePath = '{0}/{1}'.format(tempDir, safeFileName)
 
     ogrArguments = [
       'ogr2ogr',
@@ -125,7 +134,7 @@ class Layer:
       return False
 
     shapeFiles = {}
-    for rootDir, subDirs, files in os.walk(shapeDir):
+    for rootDir, subDirs, files in os.walk(tempDir):
       for shapeFile in files:
         filePrefix = os.path.splitext(shapeFile)[0]
         try:
@@ -141,11 +150,10 @@ class Layer:
           shapeZip.write('{0}/{1}'.format(rootDir, part), part)
         shapeZip.close()
         shapeZipTemp.seek(0)
-        layerName = '{0}/{1}'.format(self.name, shapePrefix)
-        layerFileName = Layer.getCleanFileName(layerName, 'zip')
-        Layer.write(layerFileName, shapeZipTemp.read())
+        fileName = '{0}.zip'.format(shapePrefix)
+        fullFilePath = self.write(fileName, shapeZipTemp.read())
         shapeZipTemp.close()
-        logging.info('Wrote file: {0}'.format(layerFileName))
+        logging.info('Wrote file: {0}'.format(fullFilePath))
 
     return True
 
@@ -181,41 +189,38 @@ class Layer:
       logging.debug(gdalErrors)
       return False
 
-    geoTiffFile.seek(0)
-    layerFileName = Layer.getCleanFileName(self.name, 'tif')
-    Layer.write(layerFileName, geoTiffFile.read())
+    geoTiffFile.seek(0)  
+    fileName = '{0}.tif'.format(self.name)
+    fullFilePath = self.write(fileName, geoTiffFile.read())
     geoTiffFile.close()
-    logging.info('Wrote file: {0}'.format(layerFileName))
+    logging.info('Wrote file: {0}'.format(fullFilePath))
     return True
 
-  @staticmethod
-  def getFullPath(layerFilePath):
-    splitParts = layerFilePath.rsplit('/', 1)
-    if len(splitParts) == 2:
-      directoryPath = '{0}/{1}'.format(outputDir, splitParts[0])
-      fileName = splitParts[1]
-    else:
-      directoryPath = outputDir
-      fileName = splitParts[0]
+  def getFullPath(self, fileName):
+    safeFileName = fileNameFilter(fileName)
+    directories = self.layerTrail[:]
+    directories.insert(0, outputDir)
+    safeDirectories = map(fileNameFilter, directories)
+    safeDirectoryPath = '/'.join(safeDirectories)
 
-    if not os.path.exists(directoryPath):
-      os.makedirs(directoryPath)
+    if not os.path.exists(safeDirectoryPath):
+      os.makedirs(safeDirectoryPath)
 
-    return (directoryPath, fileName)
+    return (safeDirectoryPath, safeFileName)
 
-  @staticmethod
-  def write(layerFilePath, layerData):
-    directoryPath, fileName = Layer.getFullPath(layerFilePath)
+  def write(self, fileName, fileData):
+    directoryPath, fileName = self.getFullPath(fileName)
+    fullFilePath = '{0}/{1}'.format(directoryPath, fileName)
 
     try:
-      outputFile = open('{0}/{1}'.format(directoryPath, fileName), 'w')
-      outputFile.write(layerData)
+      outputFile = open(fullFilePath, 'w')
+      outputFile.write(fileData)
       outputFile.close()
     except Exception, e:
       logging.exception(e)
       return False
 
-    return layerFilePath
+    return fullFilePath
 
   # Parse layer as XML and set as ElementTree root node.
   def getXmlTree(self):
@@ -226,11 +231,6 @@ class Layer:
       return False
     return lxml.etree.ElementTree(etreeElement)
 
-  @staticmethod
-  def getCleanFileName(prefix, extension):
-    cleanPrefix = re.sub(r'[^a-zA-Z_0-9\/]', '_', prefix)
-    return '{0}.{1}'.format(cleanPrefix, extension)
-
   def getSublayers(self):
     tree = self.getXmlTree()
     if not tree:
@@ -240,14 +240,20 @@ class Layer:
 
     sublayerTypes = {
       'NetworkLink': {
+        'type': 'vector',
         'rootXPath': './/*[local-name() = "NetworkLink"]',
         'nameXPath': './*[local-name() = "name"]/text()',
-        'urlXPath': './*[local-name() = "Link"]/*[local-name() = "href"]/text()'
+        'urlXPath': './*[local-name() = "Link"]/*[local-name() = "href"]/text()',
+        'latlonXPath': None,
+        'cardinalXPath': None
       },
       'GroundOverlay': {
+        'type': 'raster',
         'rootXPath': './/*[local-name() = "GroundOverlay"]',
         'nameXPath': './*[local-name() = "name"]/text()',
-        'urlXPath': './*[local-name() = "Icon"]/*[local-name() = "href"]/text()'
+        'urlXPath': './*[local-name() = "Icon"]/*[local-name() = "href"]/text()',
+        'latlonXPath': './*[local-name() = "LatLonBox"]',
+        'cardinalXPath': './*[local-name() = "{0}"]/text()'
       }
     }
 
@@ -255,21 +261,24 @@ class Layer:
       for node in tree.xpath(xPaths['rootXPath']):
         nodeName = node.xpath(xPaths['nameXPath'])
         nodeUrl = node.xpath(xPaths['urlXPath'])
-        if nodeName:
-          sublayerName = '{0}/{1}'.format(self.name, nodeName[0])
-        if nodeUrl:
-          sublayerUrl = nodeUrl[0]
-          sublayers.append(Layer(sublayerName, sublayerUrl))
 
-    for layer in sublayers:
-      layer.download()
-      if layer.fileType == 'raster':
-        latLonBox = node.xpath('./*[local-name() = "LatLonBox"]')[0]
-        layer.boundingBox['north'] = latLonBox.xpath('./*[local-name() = "north"]/text()')[0]
-        layer.boundingBox['south'] = latLonBox.xpath('./*[local-name() = "south"]/text()')[0]
-        layer.boundingBox['east'] = latLonBox.xpath('./*[local-name() = "east"]/text()')[0]
-        layer.boundingBox['west'] = latLonBox.xpath('./*[local-name() = "west"]/text()')[0]
-      
+        if nodeName and nodeUrl:
+          sublayerName = nodeName[0]
+          sublayerUrl = nodeUrl[0]
+          newLayer = Layer(sublayerName, sublayerUrl, [self.name])
+        else:
+          continue
+
+        if sublayerType == 'GroundOverlay':
+          latLonBoxMatch = node.xpath(xPaths['latlonXPath'])
+          if not latLonBoxMatch:
+            continue
+          latLonBox = latLonBoxMatch[0]
+          for direction in ('north', 'south', 'east', 'west'):
+            newLayer.boundingBox[direction] = latLonBox.xpath(xPaths['cardinalXPath'].format(direction))[0]
+
+        sublayers.append(newLayer)
+
     return sublayers
 
   def process(self):
@@ -287,9 +296,3 @@ class Layer:
       return False
 
     return True
-
-  # Process list of layers.
-  @staticmethod
-  def processLayerList(allLayers):
-    for layer in allLayers:
-      layer.process()
