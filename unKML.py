@@ -240,7 +240,6 @@ class Layer:
 
     sublayerTypes = {
       'NetworkLink': {
-        'type': 'vector',
         'rootXPath': './/*[local-name() = "NetworkLink"]',
         'nameXPath': './*[local-name() = "name"]/text()',
         'urlXPath': './*[local-name() = "Link"]/*[local-name() = "href"]/text()',
@@ -248,7 +247,6 @@ class Layer:
         'cardinalXPath': None
       },
       'GroundOverlay': {
-        'type': 'raster',
         'rootXPath': './/*[local-name() = "GroundOverlay"]',
         'nameXPath': './*[local-name() = "name"]/text()',
         'urlXPath': './*[local-name() = "Icon"]/*[local-name() = "href"]/text()',
@@ -269,7 +267,7 @@ class Layer:
         else:
           continue
 
-        if sublayerType == 'GroundOverlay':
+        if xPaths['latlonXPath']:
           latLonBoxMatch = node.xpath(xPaths['latlonXPath'])
           if not latLonBoxMatch:
             continue
