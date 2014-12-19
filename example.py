@@ -9,4 +9,4 @@ layers = [
   unKML.Layer('Sample KMZ', 'http://kml-samples.googlecode.com/svn/trunk/kml/time/time-stamp-point.kmz')
 ]
 
-unKML.Layer.processLayerList(layers)
+unKML.processLayerList(layers)
