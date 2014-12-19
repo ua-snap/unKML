@@ -17,7 +17,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     sudo pip install virtualenv virtualenvwrapper
     ```
 
- 1. Add the following lines to ```~/.bash_profile``` to complete the virtualenvwrapper installation:
+ 1. Add the following lines to ```~/.bashrc``` to complete the virtualenvwrapper installation:
 
     ```bash
     export WORKON_HOME=$HOME/.virtualenvs
@@ -28,7 +28,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     And make sure these changes are in effect by running:
 
     ```bash
-    source ~/.bash_profile
+    source ~/.bashrc
     ```
 
  1. Create an unKML virtual environment, then deactivate it for now so we can modify it and reactivate it later:
