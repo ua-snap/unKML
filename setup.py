@@ -7,5 +7,5 @@ setup(name='unKML',
       author='Craig Stephenson',
       author_email='crstephenson@alaska.edu',
       license='MIT',
-      packages=['unKML'],
+      packages=['unkml'],
       zip_safe=False)
