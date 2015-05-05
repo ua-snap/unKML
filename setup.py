@@ -8,4 +8,8 @@ setup(name='unKML',
       author_email='crstephenson@alaska.edu',
       license='MIT',
       packages=['unKML'],
+      install_requires=[
+          'python-magic',
+          'lxml'
+      ],
       zip_safe=False)
