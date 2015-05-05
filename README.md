@@ -5,7 +5,7 @@ unKML is a Python module that recursively downloads and parses KML and KMZ files
 
 ## Setup
 
-**It is highly recommended to use a custom build of GDAL with support for Google's official libkml module. unKML can technically run without libkml support by using its built-in KML driver, but using libkml vastly increases the number of files it can convert successfully.**
+**It is highly recommended to use a custom build of GDAL with support for Google's official libkml module. unKML can technically run without libkml support by using GDAL's built-in KML driver, but using libkml vastly increases the number of files it can convert successfully.**
 
 These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs inside your home directory as a virtual environment. This is to avoid impacting the system-wide installation of GDAL, if one exists, since unKML requires a custom build of GDAL with libkml support. You will also be able to switch between using your custom GDAL and the system GDAL by activating or deactivating the unKML virtual environment, respectively.
 
