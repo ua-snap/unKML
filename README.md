@@ -111,4 +111,6 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     workon unKML
     ```
 
- 1. Copy or modify the included ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers found in the provided layers. All converted files will be stored in a nested directory tree in whatever directory was specified as your `outputDir`. Since shapefiles are made up of several different files, each shapefile is stored as a single zip file.
+ 1. Copy or modify the included ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers found in the provided layers.
+
+    All converted files will be stored in a nested directory tree in whatever directory was specified as your `outputDir`. Since shapefiles are made up of several different files, each shapefile is stored as a single zip file.
