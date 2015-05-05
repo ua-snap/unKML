@@ -97,7 +97,13 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     pip install python-magic lxml
     ```
 
- 1. Download unKML:
+ 1. Install unKML either as a Python egg from this GitHub repository:
+
+    ```bash
+    pip install -e git://github.com/ua-snap/unKML.git#egg=unKML
+    ```
+
+    Or clone the repository:
 
     ```bash
     git clone https://github.com/ua-snap/unKML.git
