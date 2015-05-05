@@ -7,7 +7,7 @@ unKML is a Python module that recursively downloads and parses KML and KMZ files
 
 **It is highly recommended to use a custom build of GDAL with support for Google's official libkml module. unKML can technically run without libkml support by using GDAL's built-in KML driver, but using libkml vastly increases the number of files it can convert successfully.**
 
-These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs inside your home directory as a virtual environment. This is to avoid impacting the system-wide installation of GDAL, if one exists, since unKML requires a custom build of GDAL with libkml support. You will also be able to switch between using your custom GDAL and the system GDAL by activating or deactivating the unKML virtual environment, respectively.
+These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML and the components it needs inside your home directory as a virtual environment. This is primarily to make a custom build of GDAL available to unKML without impacting the system-wide installation of GDAL, if one exists. You will also be able to switch between using your custom GDAL and the system GDAL by activating or deactivating the unKML virtual environment, respectively.
 
  1. Install needed system packages:
 
@@ -16,10 +16,10 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     libexpat1-dev build-essential python-dev libxml2-dev libxslt1-dev
     ```
 
- 1. Install virtualenv and virtualenvwrapper if they are not already installed:
+ 1. Install virtualenvwrapper:
 
     ```bash
-    sudo pip install virtualenv virtualenvwrapper
+    sudo pip install virtualenvwrapper
     ```
 
  1. Add the following lines to ```~/.bashrc``` to complete the virtualenvwrapper installation:
@@ -105,6 +105,6 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     workon unKML
     ```
 
- 1. Copy or modify the included ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers found in the provided layers.
+ 1. Copy or modify ```example.py``` to get started, adding one or more layers to download and convert. unKML will also attempt to recursively download and convert all sublayers found in the provided layers.
 
-    All converted files will be stored in a nested directory tree in whatever directory was specified as your `outputDir`. Since shapefiles are made up of several different files, each shapefile is stored as a single zip file.
+    All converted files will be stored in a nested directory tree in whatever directory was specified as your `outputDir`. Since shapefiles are made up of several different files, each shapefile is combined and stored as a single zip file.
