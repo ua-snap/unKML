@@ -12,7 +12,11 @@ import subprocess
 import logging
 
 fileMagic = magic.Magic(mime = True)
-outputDir = None
+
+# Set output directory for shapefiles and GeoTIFFs.
+def setOutputDir(directory):
+  global outputDir
+  outputDir = directory
 
 # Process list of layers.
 def processLayerList(allLayers):
