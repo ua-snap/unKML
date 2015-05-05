@@ -12,7 +12,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
  1. Install needed system packages:
 
     ```bash
-    sudo apt-get install libcurl4-openssl-dev python-pip
+    sudo apt-get install libcurl4-openssl-dev python-pip autoconf libtool libexpat1-dev build-essential
     ```
 
  1. Install virtualenv and virtualenvwrapper if they are not already installed:
