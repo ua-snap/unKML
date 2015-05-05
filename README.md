@@ -91,22 +91,10 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
     workon unKML
     ```
 
- 1. Install required Python modules into the unKML virtual environment:
-
-    ```bash
-    pip install python-magic lxml
-    ```
-
- 1. Install unKML either as a Python egg from this GitHub repository:
+ 1. Install unKML from this GitHub repository:
 
     ```bash
     pip install -e git://github.com/ua-snap/unKML.git#egg=unKML
-    ```
-
-    Or clone the repository:
-
-    ```bash
-    git clone https://github.com/ua-snap/unKML.git
     ```
 
 ## Usage
