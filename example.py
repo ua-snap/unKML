@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import unKML
+import unkml
 import logging
 
 logging.basicConfig(format = '%(levelname)s: %(message)s', level = logging.DEBUG)

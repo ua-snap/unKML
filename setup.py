@@ -7,7 +7,7 @@ setup(name='unKML',
       author='Craig Stephenson',
       author_email='crstephenson@alaska.edu',
       license='MIT',
-      packages=['unKML'],
+      packages=['unkml'],
       install_requires=[
           'rfc3987',
           'python-magic',
