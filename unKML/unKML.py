@@ -28,25 +28,25 @@ class Config:
 
 class Layer:
   name = None
-  url = None
+  location = None
   fileType = None
   data = None
   kmzZip = None
   boundingBox = {}
   layerTrail = []
 
-  def __init__(self, name, url, layerTrail = [], kmzZip = None):
+  def __init__(self, name, location, layerTrail = [], kmzZip = None):
     self.name = name
-    self.url = url
+    self.location = location
     self.layerTrail = layerTrail
     self.layerTrail.append(self.name)
     self.kmzZip = kmzZip
 
   def download(self):
-    logging.info('Downloading {0} from {1}'.format(self.name, self.url))
+    logging.info('Downloading {0} from {1}'.format(self.name, self.location))
 
     try:
-      rfc3987.parse(self.url, rule='IRI')
+      rfc3987.parse(self.location, rule='IRI')
       isUrl = True
     except:
       isUrl = False
@@ -54,14 +54,14 @@ class Layer:
     if isUrl:
       # Download layer from URL.
       try:
-        response = urllib2.urlopen(self.url)
+        response = urllib2.urlopen(self.location)
         data = response.read()
       except Exception, e:
         logging.exception(e)
         return False
     elif self.kmzZip is not None:
       try:
-        data = self.kmzZip.read(self.url)
+        data = self.kmzZip.read(self.location)
       except Exception, e:
         logging.exception(e)
         return False
@@ -261,14 +261,14 @@ class Layer:
       'NetworkLink': {
         'rootXPath': './/*[local-name() = "NetworkLink"]',
         'nameXPath': './*[local-name() = "name"]/text()',
-        'urlXPath': './*[local-name() = "Link"]/*[local-name() = "href"]/text()',
+        'locationXPath': './*[local-name() = "Link"]/*[local-name() = "href"]/text()',
         'latlonXPath': None,
         'cardinalXPath': None
       },
       'GroundOverlay': {
         'rootXPath': './/*[local-name() = "GroundOverlay"]',
         'nameXPath': './*[local-name() = "name"]/text()',
-        'urlXPath': './*[local-name() = "Icon"]/*[local-name() = "href"]/text()',
+        'locationXPath': './*[local-name() = "Icon"]/*[local-name() = "href"]/text()',
         'latlonXPath': './*[local-name() = "LatLonBox"]',
         'cardinalXPath': './*[local-name() = "{0}"]/text()'
       }
@@ -277,12 +277,12 @@ class Layer:
     for sublayerType, xPaths in sublayerTypes.iteritems():
       for node in tree.xpath(xPaths['rootXPath']):
         nodeName = node.xpath(xPaths['nameXPath'])
-        nodeUrl = node.xpath(xPaths['urlXPath'])
+        nodeLocation = node.xpath(xPaths['locationXPath'])
 
-        if nodeName and nodeUrl:
+        if nodeName and nodeLocation:
           sublayerName = nodeName[0]
-          sublayerUrl = nodeUrl[0]
-          newLayer = Layer(sublayerName, sublayerUrl, [self.name], self.kmzZip)
+          sublayerLocation = nodeLocation[0]
+          newLayer = Layer(sublayerName, sublayerLocation, [self.name], self.kmzZip)
         else:
           continue
 
@@ -309,7 +309,7 @@ class Layer:
     elif self.fileType == 'raster' and self.data:
       self.convertRaster()
     else:
-      logging.warning('No useable content in layer "{0}" from: {1}'.format(self.name, self.url))
+      logging.warning('No usable content in layer "{0}" from: {1}'.format(self.name, self.location))
       return False
 
     return True
