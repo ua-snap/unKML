@@ -9,6 +9,7 @@ setup(name='unKML',
       license='MIT',
       packages=['unKML'],
       install_requires=[
+          'rfc3987',
           'python-magic',
           'lxml'
       ],

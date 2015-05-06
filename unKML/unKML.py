@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import rfc3987
 import urllib2
 import StringIO
 import tempfile
@@ -11,52 +12,65 @@ import sys
 import subprocess
 import logging
 
-fileMagic = magic.Magic(mime = True)
+class Config:
+  outputDir = None
+  fileMagic = magic.Magic(mime = True)
 
-# Set output directory for shapefiles and GeoTIFFs.
-def setOutputDir(directory):
-  global outputDir
-  outputDir = directory
+  # Process list of layers.
+  @staticmethod
+  def processLayerList(allLayers):
+    if Config.outputDir is None:
+      logging.error('You must set the outputDir before processing a layer list.')
+      return False
 
-# Process list of layers.
-def processLayerList(allLayers):
-  for layer in allLayers:
-    layer.process()
-
-# Make strings filesystem safe.
-def fileNameFilter(string):
-  fileNameParts = string.rsplit('.', 1)
-  safeFileNameParts = map(lambda x: re.sub(r'[^a-zA-Z_0-9]', '_', x), fileNameParts)
-  safeFileName = '.'.join(safeFileNameParts)
-  return safeFileName
+    for layer in allLayers:
+      layer.process()
 
 class Layer:
   name = None
   url = None
   fileType = None
   data = None
+  kmzZip = None
   boundingBox = {}
   layerTrail = []
 
-  def __init__(self, name, url, layerTrail = []):
+  def __init__(self, name, url, layerTrail = [], kmzZip = None):
     self.name = name
     self.url = url
     self.layerTrail = layerTrail
     self.layerTrail.append(self.name)
+    self.kmzZip = kmzZip
 
   def download(self):
     logging.info('Downloading {0} from {1}'.format(self.name, self.url))
 
-    # Download layer from URL.
     try:
-      response = urllib2.urlopen(self.url)
-    except Exception, e:
-      logging.exception(e)
+      rfc3987.parse(self.url, rule='IRI')
+      isUrl = True
+    except:
+      isUrl = False
+
+    if isUrl:
+      # Download layer from URL.
+      try:
+        response = urllib2.urlopen(self.url)
+        data = response.read()
+      except Exception, e:
+        logging.exception(e)
+        return False
+    elif self.kmzZip is not None:
+      try:
+        data = self.kmzZip.read(self.url)
+      except Exception, e:
+        logging.exception(e)
+        return False
+    else:
+      logging.warning('Invalid URL or file path for layer {0}'.format(self.name))
       return False
-    data = response.read()
 
     # Analyze file contents to determine MIME type.
-    mimeType = fileMagic.from_buffer(data)
+    mimeType = Config.fileMagic.from_buffer(data)
 
     if mimeType == 'application/xml':
       self.fileType = 'vector'
@@ -96,16 +110,17 @@ class Layer:
     kmlData = kmzZip.read(kmlFileName)
 
     self.data = kmlData
+    self.kmzZip = kmzZip
 
   def processKml(self):
-    mimeType = fileMagic.from_buffer(self.data)
+    mimeType = Config.fileMagic.from_buffer(self.data)
     if mimeType != 'application/xml':
       return False
 
     # Process sublayers through recursion.
     sublayers = self.getSublayers()
     if sublayers:
-      processLayerList(sublayers)
+      Config.processLayerList(sublayers)
 
     return True
 
@@ -116,7 +131,7 @@ class Layer:
 
     tempDir = tempfile.mkdtemp()
     fileName = '{0}.shp'.format(self.name)
-    safeFileName = fileNameFilter(fileName)
+    safeFileName = Layer.fileNameFilter(fileName)
     shapeFilePath = '{0}/{1}'.format(tempDir, safeFileName)
 
     ogrArguments = [
@@ -201,10 +216,10 @@ class Layer:
     return True
 
   def getFullPath(self, fileName):
-    safeFileName = fileNameFilter(fileName)
+    safeFileName = Layer.fileNameFilter(fileName)
     directories = self.layerTrail[:]
-    directories.insert(0, outputDir)
-    safeDirectories = map(fileNameFilter, directories)
+    directories.insert(0, Config.outputDir)
+    safeDirectories = map(Layer.fileNameFilter, directories)
     safeDirectoryPath = '/'.join(safeDirectories)
 
     if not os.path.exists(safeDirectoryPath):
@@ -267,7 +282,7 @@ class Layer:
         if nodeName and nodeUrl:
           sublayerName = nodeName[0]
           sublayerUrl = nodeUrl[0]
-          newLayer = Layer(sublayerName, sublayerUrl, [self.name])
+          newLayer = Layer(sublayerName, sublayerUrl, [self.name], self.kmzZip)
         else:
           continue
 
@@ -298,3 +313,12 @@ class Layer:
       return False
 
     return True
+
+  # Make strings filesystem safe.
+  @staticmethod
+  def fileNameFilter(string):
+    fileNameParts = string.rsplit('.', 1)
+    safeFileNameParts = map(lambda x: re.sub(r'[^a-zA-Z_0-9]', '_', x), fileNameParts)
+    safeFileName = '.'.join(safeFileNameParts)
+    return safeFileName
+
