@@ -94,7 +94,7 @@ These instructions have been tested on Ubuntu 12.04 LTS. They will install unKML
  1. Install unKML from this GitHub repository:
 
     ```bash
-    pip install -e git://github.com/ua-snap/unKML.git#egg=unKML
+    pip install -e git://github.com/ua-snap/unKML.git#egg=unkml
     ```
 
 ## Usage
