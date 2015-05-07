@@ -12,6 +12,7 @@ import sys
 import subprocess
 import logging
 
+# Configuration and utility functions.
 class Config:
   outputDir = None
   fileMagic = magic.Magic(mime = True)
@@ -26,15 +27,32 @@ class Config:
     for layer in allLayers:
       layer.process()
 
+# Each instance of Layer is either a KML file or raster image.
 class Layer:
+
+  # Human readable name of the layer.
   name = None
+
+  # This is either a URL or a path inside a KMZ file.
   location = None
+
+  # This will be set to either vector or raster.
   fileType = None
+
+  # The actual KML content or raster data.
   data = None
+
+  # If this layer is part of a KMZ file, keep it around in case we need it.
   kmzZip = None
+
+  # If this is a raster, we'll need to capture a bounding box for it.
   boundingBox = {}
+
+  # The list of nested layers leading to this one.
+  # This is used for both logging purposes and to build our output directory tree.
   layerTrail = []
 
+  # Instantiate a layer, defaulting to an empty layerTrail for first level layers.
   def __init__(self, name, location, layerTrail = [], kmzZip = None):
     self.name = name
     self.location = location
@@ -42,45 +60,54 @@ class Layer:
     self.layerTrail.append(self.name)
     self.kmzZip = kmzZip
 
-  def download(self):
-    logging.info('Downloading {0} from {1}'.format(self.name, self.location))
+  # Either download the layer from a URL or extract it from a KMZ file.
+  def getLayerData(self):
 
+    # Is this a proper URL?
     try:
       rfc3987.parse(self.location, rule='IRI')
       isUrl = True
     except:
       isUrl = False
 
+    # Download layer from URL.
     if isUrl:
-      # Download layer from URL.
+      logging.info('Downloading {0} from {1}'.format(self.name, self.location))
       try:
         response = urllib2.urlopen(self.location)
         data = response.read()
       except Exception, e:
         logging.exception(e)
         return False
+    # Extract layer from KMZ file.
     elif self.kmzZip is not None:
+      logging.info('Extracting {0} from {1}'.format(self.name, self.location))
       try:
         data = self.kmzZip.read(self.location)
       except Exception, e:
         logging.exception(e)
         return False
+    # This is not a URL, and we don't have a KMZ file. There's no way to proceed.
     else:
       logging.warning('Invalid URL or file path for layer {0}'.format(self.name))
       return False
 
-    # Analyze file contents to determine MIME type.
+    # Analyze file data to determine MIME type.
     mimeType = Config.fileMagic.from_buffer(data)
 
+    # KML
     if mimeType == 'application/xml':
       self.fileType = 'vector'
       self.data = data
+    # KMZ
     elif mimeType == 'application/zip':
       self.fileType = 'vector'
       self.extractKmz(data)
+    # Raster
     elif mimeType in ('image/png', 'image/gif'):
       self.fileType = 'raster'
       self.data = data
+    # Unsupported.
     else:
       logging.warning('Unsupported MIME type: {0}'.format(mimeType))
       return False
@@ -99,7 +126,7 @@ class Layer:
     # Find KML file(s) inside the KMZ layer.
     allKmlFiles = filter(lambda x: os.path.splitext(x)[1].lower() == '.kml', kmzFileList)
 
-    # This script currently supports KMZ files containing only one KML file.
+    # This script currently supports only one vector layer inside a KMZ file.
     if len(allKmlFiles) != 1:
       logging.error('Unexpected number of KML files found inside KMZ file for layer "{0}":'.format(self.name))
       logging.error(allKmlFiles)
@@ -109,9 +136,13 @@ class Layer:
     # Read KML layer from ZIP file and process its contents.
     kmlData = kmzZip.read(kmlFileName)
 
+    # Store KML data.
     self.data = kmlData
+
+    # Keep KMZ zip file around in case we need to extract more from it later.
     self.kmzZip = kmzZip
 
+  # Do KML validation checks and scan for sublayers.
   def processKml(self):
     mimeType = Config.fileMagic.from_buffer(self.data)
     if mimeType != 'application/xml':
@@ -124,16 +155,21 @@ class Layer:
 
     return True
 
+  # Convert KML data into shapefiles using GDAL's ogr2ogr utility.
   def convertVector(self):
+
+    # Write KML data to a temporary file on file system.
     kmlFile = tempfile.NamedTemporaryFile()
     kmlFile.write(self.data)
     kmlFile.seek(0)
 
+    # Create temporary directory for shapefile output.
     tempDir = tempfile.mkdtemp()
     fileName = '{0}.shp'.format(self.name)
     safeFileName = Layer.fileNameFilter(fileName)
     shapeFilePath = '{0}/{1}'.format(tempDir, safeFileName)
 
+    # Set up ogr2ogr system call.
     ogrArguments = [
       'ogr2ogr',
       '-f',
@@ -142,9 +178,11 @@ class Layer:
       kmlFile.name,
     ]
 
+    # Run ogr2ogr, capturing output and errors for debugging.
     ogrProcess = subprocess.Popen(ogrArguments, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     ogrOutput, ogrErrors = ogrProcess.communicate()
 
+    # ogr2ogr generates lots of different warnings and errors. Make sure the user sees them.
     if ogrProcess.returncode:
       logging.error('ogr2ogr command failed:')
       logging.error(' '.join(ogrArguments))
@@ -152,6 +190,7 @@ class Layer:
       logging.debug(ogrErrors)
       return False
 
+    # Scan through output directory. Store and group shapefiles by file prefix.
     shapeFiles = {}
     for rootDir, subDirs, files in os.walk(tempDir):
       for shapeFile in files:
@@ -162,6 +201,7 @@ class Layer:
           shapeFiles[filePrefix] = []
         shapeFiles[filePrefix].append(shapeFile)
 
+      # Combine each shapefile file group into a single zip file.
       for shapePrefix in shapeFiles.keys():
         shapeZipTemp = tempfile.NamedTemporaryFile()
         shapeZip = zipfile.ZipFile(shapeZipTemp, 'w')
@@ -176,12 +216,16 @@ class Layer:
 
     return True
 
+  # Convert raster data into GeoTIFFs using GDAL's gdal_translate utility.
   def convertRaster(self):
+
+    # Generate a temporary file on the file system for our output.
     plainImageFile = tempfile.NamedTemporaryFile()
     plainImageFile.write(self.data)
     plainImageFile.seek(0)
     geoTiffFile = tempfile.NamedTemporaryFile()
 
+    # Setup and perform gdal_translate system call.
     gdalArguments = [
       'gdal_translate',
       '-of',
@@ -201,6 +245,7 @@ class Layer:
     gdalProcess = subprocess.Popen(gdalArguments, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     gdalOutput, gdalErrors = gdalProcess.communicate()
 
+    # Show the user any warnings or errors we encounter.
     if gdalProcess.returncode:
       logging.error('gdal_translate command failed:')
       logging.error(' '.join(gdalArguments))
@@ -208,6 +253,7 @@ class Layer:
       logging.debug(gdalErrors)
       return False
 
+    # Copy the temporary file data into the script's output directory.
     geoTiffFile.seek(0)  
     fileName = '{0}.tif'.format(self.name)
     fullFilePath = self.write(fileName, geoTiffFile.read())
@@ -215,6 +261,7 @@ class Layer:
     logging.info('Wrote file: {0}'.format(fullFilePath))
     return True
 
+  # Use the layerTrail list to determine nested file system location.
   def getFullPath(self, fileName):
     safeFileName = Layer.fileNameFilter(fileName)
     directories = self.layerTrail[:]
@@ -222,11 +269,13 @@ class Layer:
     safeDirectories = map(Layer.fileNameFilter, directories)
     safeDirectoryPath = '/'.join(safeDirectories)
 
+    # Create the output directory if it does not already exist.
     if not os.path.exists(safeDirectoryPath):
       os.makedirs(safeDirectoryPath)
 
     return (safeDirectoryPath, safeFileName)
 
+  # Write the layer to the file system.
   def write(self, fileName, fileData):
     directoryPath, fileName = self.getFullPath(fileName)
     fullFilePath = '{0}/{1}'.format(directoryPath, fileName)
@@ -245,18 +294,24 @@ class Layer:
   def getXmlTree(self):
     try:
       etreeElement = lxml.etree.XML(self.data)
+      return lxml.etree.ElementTree(etreeElement)
     except Exception, e:
       logging.exception(e)
       return False
-    return lxml.etree.ElementTree(etreeElement)
 
+  # Parse the KML for either vector or raster sublayers.
   def getSublayers(self):
+
+    # Parse the KML into an XML tree so we can use XPath expressions.
     tree = self.getXmlTree()
     if not tree:
       return False
 
     sublayers = []
 
+    # Assign the appropriate XPath expressions for each supports sublayer type,
+    # based on the KML schema. This page helps clarify:
+    # https://developers.google.com/kml/documentation/kmlreference
     sublayerTypes = {
       'NetworkLink': {
         'rootXPath': './/*[local-name() = "NetworkLink"]',
@@ -274,6 +329,8 @@ class Layer:
       }
     }
 
+    # Iterate through our supported sublayerTypes, using each type's XPath expressions
+    # to grab the data we need.
     for sublayerType, xPaths in sublayerTypes.iteritems():
       for node in tree.xpath(xPaths['rootXPath']):
         nodeName = node.xpath(xPaths['nameXPath'])
@@ -286,6 +343,7 @@ class Layer:
         else:
           continue
 
+        # We need to capture a bounding box for GeoTIFFs.
         if xPaths['latlonXPath']:
           latLonBoxMatch = node.xpath(xPaths['latlonXPath'])
           if not latLonBoxMatch:
@@ -298,9 +356,10 @@ class Layer:
 
     return sublayers
 
+  # Process a layer.
   def process(self):
     if not self.data:
-      self.download()
+      self.getLayerData()
 
     if self.fileType == 'vector' and self.data:
       usefulKml = self.processKml()
@@ -318,7 +377,10 @@ class Layer:
   @staticmethod
   def fileNameFilter(string):
     fileNameParts = string.rsplit('.', 1)
+
+    # Replace any special characters with underscores in file name prefix.
     safeFileNameParts = map(lambda x: re.sub(r'[^a-zA-Z_0-9]', '_', x), fileNameParts)
+
     safeFileName = '.'.join(safeFileNameParts)
     return safeFileName
 
